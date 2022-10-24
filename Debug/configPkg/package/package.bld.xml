@@ -7,7 +7,7 @@
         <srcFile name="package/cfg/empty_pem3.c"/>
     </sources>
     <configscripts>
-        <srcFile name="C:/Users/stirl/CCS_workspace_v10/ComputerSystems2022_GroupProject/empty.cfg"/>
+        <srcFile name="C:/Users/stirl/CCS_workspace_v12/Projects/TKJ_group_project/empty.cfg"/>
     </configscripts>
     <makefiles>
         <srcFile name="package.mak" src="package.bld"/>
@@ -25,7 +25,7 @@
             platform="ti.platforms.simCM3"
             isa="v7M"
             suffix="em3"
-            rootDir="C:/ti/ccs1040/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS"
+            rootDir="C:/ti/ccs1210/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS"
             os="undefined"
             rts="ti.targets.arm.rtsarm">
             <model endian="little"
@@ -44,7 +44,7 @@
         isPartial="false"
         xCfgScript="package/cfg/empty_pem3.cfg"
         xCfgPrefix="package/cfg/empty_pem3"
-        cfgScript="C:/Users/stirl/CCS_workspace_v10/ComputerSystems2022_GroupProject/empty.cfg"
+        cfgScript="C:/Users/stirl/CCS_workspace_v12/Projects/TKJ_group_project/empty.cfg"
         cfgArgs="null"
         />
     </configurations>
@@ -56,7 +56,7 @@
         profile="release"
         xCfgScript="package/cfg/empty_pem3.cfg"
         xCfgPrefix="package/cfg/empty_pem3"
-        cfgScript="C:/Users/stirl/CCS_workspace_v10/ComputerSystems2022_GroupProject/empty.cfg"
+        cfgScript="C:/Users/stirl/CCS_workspace_v12/Projects/TKJ_group_project/empty.cfg"
         cfgArgs="null"
         />
     </executables>

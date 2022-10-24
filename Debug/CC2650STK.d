@@ -2,21 +2,21 @@
 
 CC2650STK.obj: ../CC2650STK.c
 CC2650STK.obj: C:/ti/xdctools_3_32_00_06_core/packages/xdc/std.h
-CC2650STK.obj: C:/ti/ccs1040/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/stdarg.h
-CC2650STK.obj: C:/ti/ccs1040/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/sys/_types.h
-CC2650STK.obj: C:/ti/ccs1040/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/sys/cdefs.h
-CC2650STK.obj: C:/ti/ccs1040/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/_ti_config.h
-CC2650STK.obj: C:/ti/ccs1040/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/linkage.h
-CC2650STK.obj: C:/ti/ccs1040/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/machine/_types.h
-CC2650STK.obj: C:/ti/ccs1040/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/stddef.h
+CC2650STK.obj: C:/ti/ccs1210/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/stdarg.h
+CC2650STK.obj: C:/ti/ccs1210/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/sys/_types.h
+CC2650STK.obj: C:/ti/ccs1210/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/sys/cdefs.h
+CC2650STK.obj: C:/ti/ccs1210/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/_ti_config.h
+CC2650STK.obj: C:/ti/ccs1210/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/linkage.h
+CC2650STK.obj: C:/ti/ccs1210/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/machine/_types.h
+CC2650STK.obj: C:/ti/ccs1210/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/stddef.h
 CC2650STK.obj: C:/ti/tirtos_cc13xx_cc26xx_2_21_00_06/products/bios_6_46_01_37/packages/ti/targets/arm/elf/std.h
 CC2650STK.obj: C:/ti/tirtos_cc13xx_cc26xx_2_21_00_06/products/bios_6_46_01_37/packages/ti/targets/arm/elf/M3.h
 CC2650STK.obj: C:/ti/tirtos_cc13xx_cc26xx_2_21_00_06/products/bios_6_46_01_37/packages/ti/targets/std.h
-CC2650STK.obj: C:/ti/ccs1040/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/stdint.h
-CC2650STK.obj: C:/ti/ccs1040/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/_stdint40.h
-CC2650STK.obj: C:/ti/ccs1040/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/sys/stdint.h
-CC2650STK.obj: C:/ti/ccs1040/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/machine/_stdint.h
-CC2650STK.obj: C:/ti/ccs1040/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/sys/_stdint.h
+CC2650STK.obj: C:/ti/ccs1210/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/stdint.h
+CC2650STK.obj: C:/ti/ccs1210/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/_stdint40.h
+CC2650STK.obj: C:/ti/ccs1210/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/sys/stdint.h
+CC2650STK.obj: C:/ti/ccs1210/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/machine/_stdint.h
+CC2650STK.obj: C:/ti/ccs1210/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/sys/_stdint.h
 CC2650STK.obj: C:/ti/xdctools_3_32_00_06_core/packages/xdc/runtime/System.h
 CC2650STK.obj: C:/ti/xdctools_3_32_00_06_core/packages/xdc/runtime/xdc.h
 CC2650STK.obj: C:/ti/xdctools_3_32_00_06_core/packages/xdc/runtime/Types.h
@@ -130,7 +130,7 @@ CC2650STK.obj: C:/ti/xdctools_3_32_00_06_core/packages/xdc/runtime/Error.h
 CC2650STK.obj: C:/ti/xdctools_3_32_00_06_core/packages/xdc/runtime/IModule.h
 CC2650STK.obj: C:/ti/tirtos_cc13xx_cc26xx_2_21_00_06/products/bios_6_46_01_37/packages/ti/sysbios/family/arm/m3/Hwi__epilogue.h
 CC2650STK.obj: C:/ti/tirtos_cc13xx_cc26xx_2_21_00_06/products/tidrivers_cc13xx_cc26xx_2_21_00_04/packages/ti/drivers/PIN.h
-CC2650STK.obj: C:/ti/ccs1040/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/stdbool.h
+CC2650STK.obj: C:/ti/ccs1210/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/stdbool.h
 CC2650STK.obj: C:/ti/tirtos_cc13xx_cc26xx_2_21_00_06/products/tidrivers_cc13xx_cc26xx_2_21_00_04/packages/ti/drivers/pin/PINCC26XX.h
 CC2650STK.obj: C:/ti/tirtos_cc13xx_cc26xx_2_21_00_06/products/cc26xxware_2_24_03_17272/driverlib/ioc.h
 CC2650STK.obj: C:/ti/tirtos_cc13xx_cc26xx_2_21_00_06/products/cc26xxware_2_24_03_17272/inc/hw_types.h
@@ -192,8 +192,8 @@ CC2650STK.obj: C:/ti/tirtos_cc13xx_cc26xx_2_21_00_06/products/bios_6_46_01_37/pa
 CC2650STK.obj: C:/ti/tirtos_cc13xx_cc26xx_2_21_00_06/products/bios_6_46_01_37/packages/ti/sysbios/knl/package/Clock_TimerProxy.h
 CC2650STK.obj: C:/ti/tirtos_cc13xx_cc26xx_2_21_00_06/products/cc26xxware_2_24_03_17272/driverlib/udma.h
 CC2650STK.obj: C:/ti/tirtos_cc13xx_cc26xx_2_21_00_06/products/cc26xxware_2_24_03_17272/inc/hw_udma.h
-CC2650STK.obj: C:/Users/stirl/CCS_workspace_v10/ComputerSystems2022_GroupProject/Board.h
-CC2650STK.obj: C:/Users/stirl/CCS_workspace_v10/ComputerSystems2022_GroupProject/CC2650STK.h
+CC2650STK.obj: C:/Users/stirl/CCS_workspace_v12/Projects/TKJ_group_project/Board.h
+CC2650STK.obj: C:/Users/stirl/CCS_workspace_v12/Projects/TKJ_group_project/CC2650STK.h
 CC2650STK.obj: C:/ti/tirtos_cc13xx_cc26xx_2_21_00_06/products/tidrivers_cc13xx_cc26xx_2_21_00_04/packages/ti/drivers/UART.h
 CC2650STK.obj: C:/ti/tirtos_cc13xx_cc26xx_2_21_00_06/products/tidrivers_cc13xx_cc26xx_2_21_00_04/packages/ti/drivers/uart/UARTCC26XX.h
 CC2650STK.obj: C:/ti/tirtos_cc13xx_cc26xx_2_21_00_06/products/tidrivers_cc13xx_cc26xx_2_21_00_04/packages/ti/drivers/utils/RingBuf.h
@@ -272,14 +272,14 @@ CC2650STK.obj: C:/ti/tirtos_cc13xx_cc26xx_2_21_00_06/products/bios_6_46_01_37/pa
 CC2650STK.obj: C:/ti/tirtos_cc13xx_cc26xx_2_21_00_06/products/bios_6_46_01_37/packages/ti/sysbios/knl/Semaphore.h
 CC2650STK.obj: C:/ti/tirtos_cc13xx_cc26xx_2_21_00_06/products/cc26xxware_2_24_03_17272/driverlib/rf_common_cmd.h
 CC2650STK.obj: C:/ti/tirtos_cc13xx_cc26xx_2_21_00_06/products/cc26xxware_2_24_03_17272/driverlib/rf_mailbox.h
-CC2650STK.obj: C:/ti/ccs1040/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/string.h
-CC2650STK.obj: C:/ti/ccs1040/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/xlocale/_string.h
+CC2650STK.obj: C:/ti/ccs1210/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/string.h
+CC2650STK.obj: C:/ti/ccs1210/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/xlocale/_string.h
 CC2650STK.obj: C:/ti/tirtos_cc13xx_cc26xx_2_21_00_06/products/cc26xxware_2_24_03_17272/driverlib/rf_prop_cmd.h
 CC2650STK.obj: C:/ti/tirtos_cc13xx_cc26xx_2_21_00_06/products/tidrivers_cc13xx_cc26xx_2_21_00_04/packages/ti/mw/display/Display.h
 CC2650STK.obj: C:/ti/tirtos_cc13xx_cc26xx_2_21_00_06/products/tidrivers_cc13xx_cc26xx_2_21_00_04/packages/ti/mw/display/DisplaySharp.h
 CC2650STK.obj: C:/ti/tirtos_cc13xx_cc26xx_2_21_00_06/products/bios_6_46_01_37/packages/ti/sysbios/knl/Semaphore.h
 CC2650STK.obj: C:/ti/tirtos_cc13xx_cc26xx_2_21_00_06/products/tidrivers_cc13xx_cc26xx_2_21_00_04/packages/ti/mw/grlib/grlib.h
-CC2650STK.obj: C:/ti/ccs1040/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/assert.h
+CC2650STK.obj: C:/ti/ccs1210/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/assert.h
 CC2650STK.obj: C:/ti/tirtos_cc13xx_cc26xx_2_21_00_06/products/tidrivers_cc13xx_cc26xx_2_21_00_04/packages/ti/mw/display/DisplayUart.h
 CC2650STK.obj: C:/ti/tirtos_cc13xx_cc26xx_2_21_00_06/products/bios_6_46_01_37/packages/ti/sysbios/knl/Semaphore.h
 CC2650STK.obj: C:/ti/tirtos_cc13xx_cc26xx_2_21_00_06/products/tidrivers_cc13xx_cc26xx_2_21_00_04/packages/ti/drivers/Watchdog.h
@@ -290,19 +290,19 @@ CC2650STK.obj: C:/ti/tirtos_cc13xx_cc26xx_2_21_00_06/products/bios_6_46_01_37/pa
 
 C:/ti/xdctools_3_32_00_06_core/packages/xdc/std.h:
 
-C:/ti/ccs1040/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/stdarg.h:
+C:/ti/ccs1210/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/stdarg.h:
 
-C:/ti/ccs1040/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/sys/_types.h:
+C:/ti/ccs1210/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/sys/_types.h:
 
-C:/ti/ccs1040/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/sys/cdefs.h:
+C:/ti/ccs1210/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/sys/cdefs.h:
 
-C:/ti/ccs1040/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/_ti_config.h:
+C:/ti/ccs1210/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/_ti_config.h:
 
-C:/ti/ccs1040/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/linkage.h:
+C:/ti/ccs1210/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/linkage.h:
 
-C:/ti/ccs1040/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/machine/_types.h:
+C:/ti/ccs1210/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/machine/_types.h:
 
-C:/ti/ccs1040/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/stddef.h:
+C:/ti/ccs1210/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/stddef.h:
 
 C:/ti/tirtos_cc13xx_cc26xx_2_21_00_06/products/bios_6_46_01_37/packages/ti/targets/arm/elf/std.h:
 
@@ -310,15 +310,15 @@ C:/ti/tirtos_cc13xx_cc26xx_2_21_00_06/products/bios_6_46_01_37/packages/ti/targe
 
 C:/ti/tirtos_cc13xx_cc26xx_2_21_00_06/products/bios_6_46_01_37/packages/ti/targets/std.h:
 
-C:/ti/ccs1040/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/stdint.h:
+C:/ti/ccs1210/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/stdint.h:
 
-C:/ti/ccs1040/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/_stdint40.h:
+C:/ti/ccs1210/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/_stdint40.h:
 
-C:/ti/ccs1040/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/sys/stdint.h:
+C:/ti/ccs1210/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/sys/stdint.h:
 
-C:/ti/ccs1040/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/machine/_stdint.h:
+C:/ti/ccs1210/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/machine/_stdint.h:
 
-C:/ti/ccs1040/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/sys/_stdint.h:
+C:/ti/ccs1210/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/sys/_stdint.h:
 
 C:/ti/xdctools_3_32_00_06_core/packages/xdc/runtime/System.h:
 
@@ -546,7 +546,7 @@ C:/ti/tirtos_cc13xx_cc26xx_2_21_00_06/products/bios_6_46_01_37/packages/ti/sysbi
 
 C:/ti/tirtos_cc13xx_cc26xx_2_21_00_06/products/tidrivers_cc13xx_cc26xx_2_21_00_04/packages/ti/drivers/PIN.h:
 
-C:/ti/ccs1040/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/stdbool.h:
+C:/ti/ccs1210/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/stdbool.h:
 
 C:/ti/tirtos_cc13xx_cc26xx_2_21_00_06/products/tidrivers_cc13xx_cc26xx_2_21_00_04/packages/ti/drivers/pin/PINCC26XX.h:
 
@@ -670,9 +670,9 @@ C:/ti/tirtos_cc13xx_cc26xx_2_21_00_06/products/cc26xxware_2_24_03_17272/driverli
 
 C:/ti/tirtos_cc13xx_cc26xx_2_21_00_06/products/cc26xxware_2_24_03_17272/inc/hw_udma.h:
 
-C:/Users/stirl/CCS_workspace_v10/ComputerSystems2022_GroupProject/Board.h:
+C:/Users/stirl/CCS_workspace_v12/Projects/TKJ_group_project/Board.h:
 
-C:/Users/stirl/CCS_workspace_v10/ComputerSystems2022_GroupProject/CC2650STK.h:
+C:/Users/stirl/CCS_workspace_v12/Projects/TKJ_group_project/CC2650STK.h:
 
 C:/ti/tirtos_cc13xx_cc26xx_2_21_00_06/products/tidrivers_cc13xx_cc26xx_2_21_00_04/packages/ti/drivers/UART.h:
 
@@ -830,9 +830,9 @@ C:/ti/tirtos_cc13xx_cc26xx_2_21_00_06/products/cc26xxware_2_24_03_17272/driverli
 
 C:/ti/tirtos_cc13xx_cc26xx_2_21_00_06/products/cc26xxware_2_24_03_17272/driverlib/rf_mailbox.h:
 
-C:/ti/ccs1040/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/string.h:
+C:/ti/ccs1210/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/string.h:
 
-C:/ti/ccs1040/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/xlocale/_string.h:
+C:/ti/ccs1210/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/xlocale/_string.h:
 
 C:/ti/tirtos_cc13xx_cc26xx_2_21_00_06/products/cc26xxware_2_24_03_17272/driverlib/rf_prop_cmd.h:
 
@@ -844,7 +844,7 @@ C:/ti/tirtos_cc13xx_cc26xx_2_21_00_06/products/bios_6_46_01_37/packages/ti/sysbi
 
 C:/ti/tirtos_cc13xx_cc26xx_2_21_00_06/products/tidrivers_cc13xx_cc26xx_2_21_00_04/packages/ti/mw/grlib/grlib.h:
 
-C:/ti/ccs1040/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/assert.h:
+C:/ti/ccs1210/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/assert.h:
 
 C:/ti/tirtos_cc13xx_cc26xx_2_21_00_06/products/tidrivers_cc13xx_cc26xx_2_21_00_04/packages/ti/mw/display/DisplayUart.h:
 
