@@ -110,6 +110,8 @@ Void sensorTaskFxn(UArg arg0, UArg arg1)
     i2cMPUParams.bitRate = I2C_400kHz;
     // HUOM: need to assign i2cMPUCfg to i2cMPUParams
 
+    static const I2CCC26XX_I2CPinCfg i2cMPUCfg;
+
     /* Open MPU I2C channel and setup MPU */
     i2cMPUCfg = I2C_open(Board_I2C0, &i2cMPUParams); // Board_I2C_TMP should be something different. Maybe Board_I2C0 ??
     if (i2cMPUCfg == NULL) {
