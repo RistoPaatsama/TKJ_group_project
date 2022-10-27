@@ -26,22 +26,46 @@
 Char sensorTaskStack[STACKSIZE];
 Char uartTaskStack[STACKSIZE];
 
-// JTKJ: Tehtävä 3. Tilakoneen esittely
-// JTKJ: Exercise 3. Definition of the state machine
+/* State machine */
 enum state { WAITING=1, DATA_READY };
 enum state programState = WAITING;
 
-// JTKJ: Tehtävä 3. Valoisuuden globaali muuttuja
-// JTKJ: Exercise 3. Global variable for ambient light
 double ambientLight = -1000.0;
 
-// JTKJ: Tehtävä 1. Lisää painonappien RTOS-muuttujat ja alustus
-// JTKJ: Exercise 1. Add pins RTOS-variables and configuration here
+/* Power pin for MPU */
+static PIN_Handle MPUPowerPinHandle;
+static PIN_State MPUPowerPinState;
 
-void buttonFxn(PIN_Handle handle, PIN_Id pinId) {
+// Hox! Samalle painonapille kaksi erilaista konfiguraatiota
+PIN_Config MPUPowerPinConfig[] = {
+   Board_MPU_POWER | PIN_GPIO_OUTPUT_EN | PIN_GPIO_LOW | PIN_PUSHPULL | PIN_DRVSTR_MAX,
+   PIN_TERMINATE
+};
 
-    // JTKJ: Tehtävä 1. Vilkuta jompaa kumpaa lediä
-    // JTKJ: Exercise 1. Blink either led of the device
+/* Push buttons */
+int button0Flag = 0;
+
+static PIN_Handle button0Handle;
+static PIN_State button0State;
+
+PIN_Config button0Config[] = {
+    Board_BUTTON0  | PIN_INPUT_EN | PIN_PULLUP | PIN_IRQ_BOTHEDGES,
+    PIN_TERMINATE
+};
+
+void button0Fxn(PIN_Handle handle, PIN_Id pinId)
+{
+    uint_t buttonValue = PIN_getInputValue( pinId );
+
+    if (buttonValue) {
+        button0Flag = 0;
+        //System_printf("Button 0 released\n");
+        //System_flush();
+    } else {
+        button0Flag = 1;
+        //System_printf("Button 0 pressed\n");
+        //System_flush();
+    }
 }
 
 /* Task Functions */
@@ -69,34 +93,60 @@ Void uartTaskFxn(UArg arg0, UArg arg1) {
     }
 }
 
-Void sensorTaskFxn(UArg arg0, UArg arg1) {
+Void sensorTaskFxn(UArg arg0, UArg arg1)
+{
+    double lux;
+    char merkkijono[64];
 
-    I2C_Handle      i2c;
-    I2C_Params      i2cParams;
+    // I2C setup
+    I2C_Handle      i2c,        i2cMPUCfg;
+    I2C_Params      i2cParams,  i2cMPUParams;
 
-    // JTKJ: Tehtävä 2. Avaa i2c-väylä taskin käyttöön
-    // JTKJ: Exercise 2. Open the i2c bus
+    I2C_Params_init(&i2cParams);
+    i2cParams.bitRate = I2C_400kHz;
 
-    // JTKJ: Tehtävä 2. Alusta sensorin OPT3001 setup-funktiolla
-    //       Laita enne funktiokutsua eteen 100ms viive (Task_sleep)
-    // JTKJ: Exercise 2. Setup the OPT3001 sensor for use
-    //       Before calling the setup function, insertt 100ms delay with Task_sleep
+    // HUOM: need to assign Board_I2C0_SDA1 ja Board_I2C0_SCL1 to i2cMPUCfg
+    I2C_Params_init(&i2cMPUParams);
+    i2cMPUParams.bitRate = I2C_400kHz;
+    // HUOM: need to assign i2cMPUCfg to i2cMPUParams
 
-    while (1) {
+    /* Open MPU I2C channel and setup MPU */
+    i2cMPUCfg = I2C_open(Board_I2C0, &i2cMPUParams); // Board_I2C_TMP should be something different. Maybe Board_I2C0 ??
+    if (i2cMPUCfg == NULL) {
+      System_abort("Error Initializing I2C\n");
+    }
 
-        // JTKJ: Tehtävä 2. Lue sensorilta dataa ja tulosta se Debug-ikkunaan merkkijonona
+    PIN_setOutputValue( MPUPowerPinHandle, Board_MPU_POWER, 1 ); // turn on MPU power pin
+    Task_sleep(100000 / Clock_tickPeriod);
+    mpu9250_setup(&i2cMPUCfg);
+    I2C_close(i2cMPUCfg);
+
+
+    // open other I2C channel and setup periferals
+    i2c = I2C_open(Board_I2C_TMP, &i2cParams);
+    if (i2c == NULL) {
+      System_abort("Error Initializing I2C\n");
+    }
+
+    Task_sleep(100000 / Clock_tickPeriod);
+    opt3001_setup(&i2c);
+    I2C_close(i2c);
+
+    while (1)
+    {
+        if (0)
+        {
+            System_printf("(Button 0 pressed) ");
+            System_flush();
+            button0Flag = 0;
+        }
         // JTKJ: Exercise 2. Read sensor data and print it to the Debug window as string
+        lux = opt3001_get_data(&i2c);
+        sprintf(merkkijono, "(in sensorTask) light intensity: %.4f lux\n", lux);
 
-        // JTKJ: Tehtävä 3. Tallenna mittausarvo globaaliin muuttujaan
-        //       Muista tilamuutos
-        // JTKJ: Exercise 3. Save the sensor value into the global variable
-        //       Remember to modify state
-
-        // Just for sanity check for exercise, you can comment this out
-        System_printf("sensorTask\n");
+        System_printf(merkkijono);
         System_flush();
 
-        // Once per second, you can modify this
         Task_sleep(1000000 / Clock_tickPeriod);
     }
 }
@@ -112,16 +162,7 @@ Int main(void) {
     // Initialize board
     Board_initGeneral();
     Init6LoWPAN();
-    
-    // JTKJ: Tehtävä 2. Ota i2c-väylä käyttöön ohjelmassa
-    // JTKJ: Exercise 2. Initialize i2c bus
-    // JTKJ: Tehtävä 4. Ota UART käyttöön ohjelmassa
-    // JTKJ: Exercise 4. Initialize UART
-
-    // JTKJ: Tehtävä 1. Ota painonappi ja ledi ohjelman käyttöön
-    //       Muista rekisteröidä keskeytyksen käsittelijä painonapille
-    // JTKJ: Exercise 1. Open the button and led pins
-    //       Remember to register the above interrupt handler for button
+    Board_initI2C();
 
     /* Task */
     Task_Params_init(&sensorTaskParams);
@@ -140,6 +181,21 @@ Int main(void) {
     uartTaskHandle = Task_create(uartTaskFxn, &uartTaskParams, NULL);
     if (uartTaskHandle == NULL) {
         System_abort("Task create failed!");
+    }
+
+    /* Power pin for MPU */
+    MPUPowerPinHandle = PIN_open( &MPUPowerPinState, MPUPowerPinConfig );
+    if(!MPUPowerPinHandle) {
+      System_abort("Error initializing MPU power pin\n");
+    }
+
+    /* Push buttons */
+    button0Handle = PIN_open( &button0State, button0Config );
+    if(!button0Handle) {
+        System_abort("Error initializing button 0\n");
+    }
+    if (PIN_registerIntCb( button0Handle, &button0Fxn ) != 0) {
+        System_abort("Error registering button 0 callback function");
     }
 
     /* Sanity check */

@@ -97,7 +97,7 @@ C:/ti/xdctools_3_32_00_06_core/packages/xdc/tools/configuro/template/package.xs.
 package.mak: C:/ti/xdctools_3_32_00_06_core/packages/xdc/tools/configuro/template/package.xs.xdt
 endif
 
-ti.targets.arm.elf.M3.rootDir ?= C:/ti/ccs1040/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS
+ti.targets.arm.elf.M3.rootDir ?= C:/ti/ccs1210/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS
 ti.targets.arm.elf.packageBase ?= C:/ti/tirtos_cc13xx_cc26xx_2_21_00_06/products/bios_6_46_01_37/packages/ti/targets/arm/elf/
 .PRECIOUS: $(XDCCFGDIR)/%.oem3
 .PHONY: all,em3 .dlls,em3 .executables,em3 test,em3

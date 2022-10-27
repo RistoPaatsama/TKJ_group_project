@@ -11,7 +11,7 @@ var makeAssembly = false;
 var Executable = xdc.module('xdc.bld.Executable');
 
 var exeOpts = new Executable.Attrs({
-        cfgScript: 'C:/Users/stirl/CCS_workspace_v10/ComputerSystems2022_GroupProject/empty.cfg',
+        cfgScript: 'C:/Users/stirl/CCS_workspace_v12/Projects/TKJ_group_project/empty.cfg',
         profile: 'release',
         cfgHome: 'configPkg',
 });
@@ -41,7 +41,7 @@ else {
 
 var thisObj = {
     cfg:        '../empty.cfg',
-    outputPath: 'C:/Users/stirl/CCS_workspace_v10/ComputerSystems2022_GroupProject/Debug/configPkg',
+    outputPath: 'C:/Users/stirl/CCS_workspace_v12/Projects/TKJ_group_project/Debug/configPkg',
     exeName:    'empty' + suffix,
     exeIntName: 'empty' + suffix.replace('.', '_'),
     targ:       targ,
