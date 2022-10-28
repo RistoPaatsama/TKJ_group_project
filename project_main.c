@@ -22,6 +22,9 @@
 #include "wireless/comm_lib.h"
 #include "sensors/opt3001.h"
 #include "sensors/mpu9250.h"
+#include "custom/DataHandling.h"
+
+#define GET_TIME_DS     (Double)Clock_getTicks() * (Double)Clock_tickPeriod / 100000
 
 /* Task */
 #define STACKSIZE 2048
@@ -61,16 +64,25 @@ PIN_Config button0Config[] = {
     PIN_TERMINATE
 };
 
+int collectDataFlag = 0;
+int dataToPrintFlag = 0;
+
+const int MPU_DATA_SPAN = 20;
+float MPU_data[MPU_DATA_SPAN][7];
+
+
+/* button interrupt */
 void button0Fxn(PIN_Handle handle, PIN_Id pinId)
 {
     uint_t buttonValue = PIN_getInputValue( pinId );
 
     if (buttonValue) {
-        button0Flag = 0;
+        //button0Flag = 0;
         //System_printf("Button 0 released\n");
         //System_flush();
-    } else {
-        button0Flag = 1;
+    } else { // button pushed
+        collectDataFlag = !collectDataFlag;
+        //button0Flag = 1;
         //System_printf("Button 0 pressed\n");
         //System_flush();
     }
@@ -107,7 +119,7 @@ Void sensorTaskFxn(UArg arg0, UArg arg1)
     //System_flush();
 
     double lux;
-    char merkkijono[128];
+    char buffer[128];
 
     // I2C setup
     I2C_Handle      i2c,        i2cMPU;
@@ -125,8 +137,6 @@ Void sensorTaskFxn(UArg arg0, UArg arg1)
     Task_sleep(100000 / Clock_tickPeriod);
     System_printf("MPU9250: Power ON\n");
     System_flush();
-
-    static const I2CCC26XX_I2CPinCfg i2cMPUCfg;
 
     /* Open MPU I2C channel and setup MPU */
     i2cMPU = I2C_open(Board_I2C0, &i2cMPUParams);
@@ -157,12 +167,17 @@ Void sensorTaskFxn(UArg arg0, UArg arg1)
 
     int i = 0;
 
-    System_printf("time,ax,ay,az,gx,gy,gz\n");
-    System_flush();
+    //System_printf("time,ax,ay,az,gx,gy,gz\n");
+    //System_flush();
 
     while (1)
     {
-        float ax, ay, az, gx, gy, gz;
+        float time, ax, ay, az, gx, gy, gz;
+        float row[7];
+
+        /*sprintf(buffer, "time since program start in 1/10th seconds %.5f\n", GET_TIME_DS );
+        System_printf(buffer);
+        System_flush();*/
 
         // Read light sensor data
         /*i2c = I2C_open(Board_I2C_TMP, &i2cParams);
@@ -172,28 +187,48 @@ Void sensorTaskFxn(UArg arg0, UArg arg1)
         lux = opt3001_get_data(&i2c);
         I2C_close(i2c);*/
 
-        //sprintf(merkkijono, "(in sensorTask) light intensity: %.4f lux\n", lux);
+        //sprintf(buffer, "(in sensorTask) light intensity: %.4f lux\n", lux);
 
-        //System_printf(merkkijono);
+        //System_printf(buffer);
         //System_flush();
 
         /* GET AND PRINT MPU DATA */
 
-        i2cMPU = I2C_open(Board_I2C0, &i2cMPUParams);
-        if (i2cMPU == NULL) {
-            System_abort("Error Initializing I2C\n");
+        if (collectDataFlag)
+        {
+            if (!dataToPrintFlag) // start data collecting after not collecting
+            {
+                dataToPrintFlag = 1;
+                setZeroMpuData(MPU_data, MPU_DATA_SPAN);
+                System_printf("\nStarting data collection\n");
+                System_flush();
+            }
+
+            i2cMPU = I2C_open(Board_I2C0, &i2cMPUParams);
+            if (i2cMPU == NULL) {
+                System_abort("Error Initializing I2C\n");
+            }
+            mpu9250_get_data(&i2cMPU, &ax, &ay, &az, &gx, &gy, &gz);
+            time = GET_TIME_DS;
+            I2C_close(i2cMPU);
+
+            addMpuData(MPU_data, MPU_DATA_SPAN, time, ax, ay, az, gx, gy, gz);
+
+            /*sprintf(buffer, "%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f\n", MPU_data[0][0], MPU_data[0][1], MPU_data[0][2], MPU_data[0][3], MPU_data[0][4], MPU_data[0][5], MPU_data[0][6]);
+            System_printf(buffer);
+            System_flush();*/
+
+        } else {
+            if (dataToPrintFlag)
+            {
+                dataToPrintFlag = 0;
+                System_printf("Data collection stopped");
+                System_flush();
+                printMpuData(MPU_data, MPU_DATA_SPAN);
+            }
         }
 
-        mpu9250_get_data(&i2cMPU, &ax, &ay, &az, &gx, &gy, &gz);
-
-        I2C_close(i2cMPU);
-
-        sprintf(merkkijono, "%d,%4.2f,%4.2f,%4.2f,%4.2f,%4.2f,%4.2f\n", i++, 10*ax, 10*ay, 10*az, gx, gy, gz);
-
-        System_printf(merkkijono);
-        System_flush();
-
-        Task_sleep(100000 / Clock_tickPeriod);
+        Task_sleep(100*1000 / Clock_tickPeriod);
     }
 }
 
@@ -229,6 +264,7 @@ Int main(void) {
         System_abort("Task create failed!");
     }
 
+
     /* Power pin for MPU */
     MPUPowerPinHandle = PIN_open( &MPUPowerPinState, MPUPowerPinConfig );
     if(!MPUPowerPinHandle) {
@@ -248,7 +284,6 @@ Int main(void) {
     System_printf("Hello world!\n");
     System_flush();
 
-    /* Start BIOS */
     BIOS_start();
 
     return (0);
