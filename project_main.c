@@ -26,6 +26,8 @@
 
 #define GET_TIME_DS     (Double)Clock_getTicks() * (Double)Clock_tickPeriod / 100000
 
+#define MPU_DATA_SPAN 40
+
 /* Task */
 #define STACKSIZE 2048
 Char sensorTaskStack[STACKSIZE];
@@ -67,7 +69,7 @@ PIN_Config button0Config[] = {
 int collectDataFlag = 0;
 
 
-const int MPU_DATA_SPAN = 40; // 10 readings per second
+//const int MPU_DATA_SPAN = 40; // 10 readings per second
 float MPU_data[MPU_DATA_SPAN][7];
 
 
@@ -91,25 +93,42 @@ void button0Fxn(PIN_Handle handle, PIN_Id pinId)
 /* Task Functions */
 Void uartTaskFxn(UArg arg0, UArg arg1) {
 
-    // JTKJ: Teht‰v‰ 4. Lis‰‰ UARTin alustus: 9600,8n1
-    // JTKJ: Exercise 4. Setup here UART connection as 9600,8n1
+    char send_msg[80];
+
+    // UART library settings
+    UART_Handle uart;
+    UART_Params uartParams;
+
+    // init serial port parameters
+    UART_Params_init(&uartParams);
+    uartParams.writeDataMode = UART_DATA_TEXT;
+    uartParams.readDataMode = UART_DATA_TEXT;
+    uartParams.readEcho = UART_ECHO_OFF;
+    uartParams.readMode=UART_MODE_BLOCKING;
+    uartParams.baudRate = 9600;
+    uartParams.dataLength = UART_LEN_8;
+    uartParams.parityType = UART_PAR_NONE;
+    uartParams.stopBits = UART_STOP_ONE;
+
+    // opening connection to serail comm port
+    uart = UART_open(Board_UART0, &uartParams);
+    if (uart == NULL) {
+       System_abort("Error opening the UART");
+    }
 
     while (1) {
 
-        // JTKJ: Teht‰v‰ 3. Kun tila on oikea, tulosta sensoridata merkkijonossa debug-ikkunaan
-        //       Muista tilamuutos
-        // JTKJ: Exercise 3. Print out sensor data as string to debug window if the state is correct
-        //       Remember to modify state
+        // sending message with UART to serial port
+        if (programState == DATA_READY) {
+            sprintf(send_msg, "uartTask: This is test\n\r");
+            System_printf("%s", send_msg);
+            System_flush();
+            UART_write(uart, send_msg, strlen(send_msg));
+            programState = WAITING;
+        }
 
-        // JTKJ: Teht‰v‰ 4. L‰het‰ sama merkkijono UARTilla
-        // JTKJ: Exercise 4. Send the same sensor data string with UART
-
-        // Just for sanity check for exercise, you can comment this out
-        //System_printf("uartTask\n");
-        //System_flush();
-
-        // Once per second, you can modify this
-        Task_sleep(1000000 / Clock_tickPeriod);
+        // Once per 100ms
+        Task_sleep(100000 / Clock_tickPeriod);
     }
 }
 
@@ -142,7 +161,7 @@ Void dataCollectionTaskFxn(UArg arg0, UArg arg1)
     System_printf("MPU9250: Power ON\n");
     System_flush();
 
-    /* Open MPU I2C channel and setup MPU */
+    // Open MPU I2C channel and setup MPU
     i2cMPU = I2C_open(Board_I2C0, &i2cMPUParams);
     if (i2cMPU == NULL) {
       System_abort("Error Initializing I2C\n");
@@ -214,7 +233,7 @@ Void dataCollectionTaskFxn(UArg arg0, UArg arg1)
             }
             firstTimeFlag = 0;
 
-            if (!dataToPrintFlag) // start data collecting after not collecting
+            if (!dataToPrintFlag && programState == WAITING) // start data collecting after not collecting
             {
                 dataToPrintFlag = 1;
                 setZeroMpuData(MPU_data, MPU_DATA_SPAN);
@@ -231,6 +250,7 @@ Void dataCollectionTaskFxn(UArg arg0, UArg arg1)
             I2C_close(i2cMPU);
 
             addMpuData(MPU_data, MPU_DATA_SPAN, time, ax, ay, az, gx, gy, gz);
+            // programState = DATA_READY;
 
         } else { // not collecting data
             if (dataToPrintFlag)
@@ -239,10 +259,10 @@ Void dataCollectionTaskFxn(UArg arg0, UArg arg1)
                 System_printf("Data collection stopped");
                 System_flush();
                 printMpuData(MPU_data, MPU_DATA_SPAN);
+                programState = DATA_READY;
             }
             if (!setupNeededFlag) setupNeededFlag = 1;
         }
-
         Task_sleep(100*1000 / Clock_tickPeriod);
     }
 }
@@ -258,7 +278,12 @@ Int main(void) {
     // Initialize board
     Board_initGeneral();
     Init6LoWPAN();
+
+    // Init i2c bus
     Board_initI2C();
+
+    // init serial communication port
+    Board_initUART();
 
     /* Task */
     Task_Params_init(&dataCollectionTaskParams);
