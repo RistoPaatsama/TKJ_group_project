@@ -271,7 +271,7 @@ Void dataCollectionTaskFxn(UArg arg0, UArg arg1)
                 System_printf("Data collection stopped");
                 System_flush();
                 printMpuData(MPU_data, MPU_DATA_SPAN);
-                programState = DATA_READY;
+                //programState = DATA_READY;
             }
             if (!setupNeededFlag) setupNeededFlag = 1;
         }
@@ -308,6 +308,7 @@ Int main(void) {
         System_abort("Task create failed!");
     }
 
+    /*
     Task_Params_init(&uartTaskParams);
     uartTaskParams.stackSize = STACKSIZE;
     uartTaskParams.stack = &uartTaskStack;
@@ -316,7 +317,7 @@ Int main(void) {
     if (uartTaskHandle == NULL) {
         System_abort("Task create failed!");
     }
-
+    */
 
     /* Power pin for MPU */
     MPUPowerPinHandle = PIN_open( &MPUPowerPinState, MPUPowerPinConfig );
