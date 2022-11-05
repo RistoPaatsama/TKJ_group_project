@@ -25,8 +25,8 @@
 #include "custom/DataHandling.h"
 
 #define GET_TIME_DS     (Double)Clock_getTicks() * (Double)Clock_tickPeriod / 100000
-
 #define MPU_DATA_SPAN 40
+#define BUFFER_SIZE 80
 
 /* Task */
 #define STACKSIZE 2048
@@ -37,6 +37,8 @@ Char uartTaskStack[STACKSIZE];
 enum state { WAITING=1, DATA_READY };
 enum state programState = WAITING;
 
+uint8_t uartInterruptFlag = 0;
+uint8_t uartBuffer[BUFFER_SIZE];
 double ambientLight = -1000.0;
 
 /* Power pin for MPU */
@@ -90,46 +92,56 @@ void button0Fxn(PIN_Handle handle, PIN_Id pinId)
     }
 }
 
-/* Task Functions */
-Void uartTaskFxn(UArg arg0, UArg arg1) {
+/* TASKS */
+/* INTERRRRUPT HANDLER */
+static void uartFxn(UART_Handle handle, void *rxBuf, size_t len) {
 
-    char send_msg[80];
+   UART_read(handle, rxBuf, BUFFER_SIZE);
+   uartInterruptFlag = 1;
+}
 
-    // UART library settings
-    UART_Handle uart;
-    UART_Params uartParams;
+static void uartTask(UArg arg0, UArg arg1) {
 
-    // init serial port parameters
-    UART_Params_init(&uartParams);
-    uartParams.writeDataMode = UART_DATA_TEXT;
-    uartParams.readDataMode = UART_DATA_TEXT;
-    uartParams.readEcho = UART_ECHO_OFF;
-    uartParams.readMode=UART_MODE_BLOCKING;
-    uartParams.baudRate = 9600;
-    uartParams.dataLength = UART_LEN_8;
-    uartParams.parityType = UART_PAR_NONE;
-    uartParams.stopBits = UART_STOP_ONE;
+   UART_Handle uartHandle;
+   UART_Params uartParams;
 
-    // opening connection to serail comm port
-    uart = UART_open(Board_UART0, &uartParams);
-    if (uart == NULL) {
-       System_abort("Error opening the UART");
-    }
+   char rec_msg[255];
+   char msg[BUFFER_SIZE];
 
-    while (1) {
+   UART_Params_init(&uartParams);
+   uartParams.baudRate      = 9600;
+   uartParams.readMode      = UART_MODE_CALLBACK; // Keskeytyspohjainen vastaanotto
+   uartParams.readCallback  = &uartFxn; // Käsittelijäfunktio
+   uartParams.readDataMode  = UART_DATA_TEXT;
+   uartParams.writeDataMode = UART_DATA_TEXT;
 
-        // sending message with UART to serial port
-        if (programState == DATA_READY) {
-            sprintf(send_msg, "uartTask: This is test\n\r");
-            System_printf("%s", send_msg);
-            System_flush();
-            UART_write(uart, send_msg, strlen(send_msg));
-            programState = WAITING;
-        }
+    // UART käyttöön ohjelmassa
+   uartHandle = UART_open(Board_UART, &uartParams);
+   if (uartHandle == NULL) {
+      System_abort("Error opening the UART");
+   }
 
-        // Once per 100ms
-        Task_sleep(100000 / Clock_tickPeriod);
-    }
+   // Nyt tarvitsee käynnistää datan odotus
+   UART_read(uartHandle, uartBuffer, BUFFER_SIZE);
+
+   while(1) {
+
+       // sending message with UART through serial port
+       if (programState == DATA_READY) {
+           sprintf(msg, "id:2231,EAT:1");
+           UART_write(uartHandle, msg, sizeof(msg));
+           memset(msg, 0, BUFFER_SIZE);
+       }
+
+       if (uartInterruptFlag == 1) {
+           sprintf(rec_msg, "Interrupt happened. Received message is: %s\n", uartBuffer);
+           System_printf("%s\n", rec_msg);
+           System_flush();
+           uartInterruptFlag = 0;
+       }
+       programState = WAITING;
+       Task_sleep(100*1000 / Clock_tickPeriod);
+   }
 }
 
 Void dataCollectionTaskFxn(UArg arg0, UArg arg1)
@@ -275,6 +287,7 @@ Int main(void) {
     Task_Handle uartTaskHandle;
     Task_Params uartTaskParams;
 
+
     // Initialize board
     Board_initGeneral();
     Init6LoWPAN();
@@ -299,7 +312,7 @@ Int main(void) {
     uartTaskParams.stackSize = STACKSIZE;
     uartTaskParams.stack = &uartTaskStack;
     uartTaskParams.priority=2;
-    uartTaskHandle = Task_create(uartTaskFxn, &uartTaskParams, NULL);
+    uartTaskHandle = Task_create(uartTask, &uartTaskParams, NULL);
     if (uartTaskHandle == NULL) {
         System_abort("Task create failed!");
     }
