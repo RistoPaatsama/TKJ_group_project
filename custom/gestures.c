@@ -4,13 +4,14 @@
 
 #include "gestures.h"
 
-int isPetting(float *ay, float *ax, float *az, uint8_t array_size)
+int isPetting(float *ay, float *ax, float *az, uint8_t span)
 {
     float ay_threshold = 0.4;
     float ax_threshold = 0.1;
     float az_threshold = 0.9;
+    int i;
 
-    for (int i = 0; i < array_size; i++)
+    for (i = 0; i < span; i++)
     {
         if (fabs(ay[i]) > ay_threshold && fabs(ax[i]) < ax_threshold && fabs(az[i]) > az_threshold)
         {

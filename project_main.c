@@ -23,19 +23,29 @@
 #include "sensors/opt3001.h"
 #include "sensors/mpu9250.h"
 #include "custom/DataHandling.h"
+#include "custom/gestures.h"
+#include "custom/utilities.h"
 
 #define GET_TIME_DS     (Double)Clock_getTicks() * (Double)Clock_tickPeriod / 100000
 #define MPU_DATA_SPAN 40
 #define BUFFER_SIZE 80
+#define WINDOW 3
+#define MESSAGE_COUNT 10
 
 /* Task */
 #define STACKSIZE 2048
 Char sensorTaskStack[STACKSIZE];
 Char uartTaskStack[STACKSIZE];
+Char dataAnalyzisTaskStack[STACKSIZE];
 
 /* State machine */
-enum state { WAITING=1, DATA_READY };
+enum state { WAITING=1, DATA_READY, SEND_DATA };
 enum state programState = WAITING;
+
+/* Enum for gesture */
+
+enum gesture { NONE=0, PETTING };
+enum gesture currentGesture = NONE;
 
 uint8_t uartInterruptFlag = 0;
 uint8_t uartBuffer[BUFFER_SIZE];
@@ -106,7 +116,12 @@ static void uartTask(UArg arg0, UArg arg1) {
    UART_Params uartParams;
 
    char rec_msg[255];
-   char msg[BUFFER_SIZE];
+   char uartMsg[BUFFER_SIZE];
+   char msg[MESSAGE_COUNT][BUFFER_SIZE] = {
+        "id:2231,ping",
+        "id:2231,PET:1",
+        "id:2231,EAT:1",
+   };
 
    UART_Params_init(&uartParams);
    uartParams.baudRate      = 9600;
@@ -127,10 +142,12 @@ static void uartTask(UArg arg0, UArg arg1) {
    while(1) {
 
        // sending message with UART through serial port
-       if (programState == DATA_READY) {
-           sprintf(msg, "id:2231,EAT:1");
-           UART_write(uartHandle, msg, sizeof(msg));
-           memset(msg, 0, BUFFER_SIZE);
+       if (programState == DATA_READY && currentGesture != NONE) {
+           sprintf(uartMsg, msg[currentGesture]);
+           System_printf("uartMsg is: %s\n", uartMsg);
+           System_flush();
+           UART_write(uartHandle, uartMsg, sizeof(uartMsg));
+           memset(uartMsg, 0, BUFFER_SIZE);
        }
 
        if (uartInterruptFlag == 1) {
@@ -268,12 +285,40 @@ Void dataCollectionTaskFxn(UArg arg0, UArg arg1)
             if (dataToPrintFlag)
             {
                 dataToPrintFlag = 0;
-                System_printf("Data collection stopped");
+                System_printf("Data collection stopped\n");
                 System_flush();
-                printMpuData(MPU_data, MPU_DATA_SPAN);
-                //programState = DATA_READY;
+                //printMpuData(MPU_data, MPU_DATA_SPAN);
+                programState = DATA_READY;
+                currentGesture = PETTING;
             }
             if (!setupNeededFlag) setupNeededFlag = 1;
+        }
+        Task_sleep(100*1000 / Clock_tickPeriod);
+    }
+}
+
+void dataAnalyzisTask(UArg arg0, UArg arg1)
+{
+    float ax[40], ay[40], az[40];
+    while (1) {
+        if(programState == DATA_READY) {
+            intoArray(MPU_data, ax, 1, MPU_DATA_SPAN);
+            intoArray(MPU_data, ay, 2, MPU_DATA_SPAN);
+            intoArray(MPU_data, az, 3, MPU_DATA_SPAN);
+            //printArray(ay, MPU_DATA_SPAN);
+            movavg(ax, MPU_DATA_SPAN, WINDOW);
+            movavg(ay, MPU_DATA_SPAN, WINDOW);
+            movavg(az, MPU_DATA_SPAN, WINDOW);
+            //printArray(ay, MPU_DATA_SPAN);
+            if(isPetting(ay, ax, az, MPU_DATA_SPAN)) {
+                System_printf("FOUND GESTURE PETTING\n");
+                System_flush();
+                currentGesture = PETTING;
+                programState = SEND_DATA;
+            } else {
+                currentGesture = NONE;
+                programState = WAITING;
+            }
         }
         Task_sleep(100*1000 / Clock_tickPeriod);
     }
@@ -286,7 +331,8 @@ Int main(void) {
     Task_Params dataCollectionTaskParams;
     Task_Handle uartTaskHandle;
     Task_Params uartTaskParams;
-
+    Task_Handle dataAnalyzisTaskHandle;
+    Task_Params dataAnalyzisTaskParams;
 
     // Initialize board
     Board_initGeneral();
@@ -308,13 +354,23 @@ Int main(void) {
         System_abort("Task create failed!");
     }
 
-    /*
+
     Task_Params_init(&uartTaskParams);
     uartTaskParams.stackSize = STACKSIZE;
     uartTaskParams.stack = &uartTaskStack;
     uartTaskParams.priority=2;
     uartTaskHandle = Task_create(uartTask, &uartTaskParams, NULL);
     if (uartTaskHandle == NULL) {
+        System_abort("Task create failed!");
+    }
+
+    /*
+    Task_Params_init(&dataAnalyzisTaskParams);
+    dataAnalyzisTaskParams.stackSize = STACKSIZE;
+    dataAnalyzisTaskParams.stack = &dataAnalyzisTaskStack;
+    dataAnalyzisTaskParams.priority=2;
+    dataAnalyzisTaskHandle = Task_create(dataAnalyzisTask, &dataAnalyzisTaskParams, NULL);
+    if (dataAnalyzisTaskHandle == NULL) {
         System_abort("Task create failed!");
     }
     */
