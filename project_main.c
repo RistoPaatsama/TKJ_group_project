@@ -91,17 +91,17 @@ void button0Fxn(PIN_Handle handle, PIN_Id pinId)
 /* Task Functions */
 Void uartTaskFxn(UArg arg0, UArg arg1) {
 
-    // JTKJ: Tehtävä 4. Lisää UARTin alustus: 9600,8n1
+    // JTKJ: Tehtï¿½vï¿½ 4. Lisï¿½ï¿½ UARTin alustus: 9600,8n1
     // JTKJ: Exercise 4. Setup here UART connection as 9600,8n1
 
     while (1) {
 
-        // JTKJ: Tehtävä 3. Kun tila on oikea, tulosta sensoridata merkkijonossa debug-ikkunaan
+        // JTKJ: Tehtï¿½vï¿½ 3. Kun tila on oikea, tulosta sensoridata merkkijonossa debug-ikkunaan
         //       Muista tilamuutos
         // JTKJ: Exercise 3. Print out sensor data as string to debug window if the state is correct
         //       Remember to modify state
 
-        // JTKJ: Tehtävä 4. Lähetä sama merkkijono UARTilla
+        // JTKJ: Tehtï¿½vï¿½ 4. Lï¿½hetï¿½ sama merkkijono UARTilla
         // JTKJ: Exercise 4. Send the same sensor data string with UART
 
         // Just for sanity check for exercise, you can comment this out

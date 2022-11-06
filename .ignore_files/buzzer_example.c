@@ -18,7 +18,7 @@
 #include "custom/Music.h"
 #include "custom/Songs.h"
 
-#define SLEEP(ms) Task_sleep((ms)*1000 / Clock_tickPeriod);
+#define SLEEP(ms) Task_sleep((ms)*1000 / Clock_tickPeriod)
 
 /* Task */
 #define STACKSIZE 2048
