@@ -1,4 +1,4 @@
-/* C Standard library */
+
 #include <stdio.h>
 
 /* XDCtools files */
@@ -23,18 +23,32 @@
 #include "sensors/opt3001.h"
 #include "sensors/mpu9250.h"
 #include "custom/DataHandling.h"
+#include "custom/gestures.h"
+#include "custom/utilities.h"
 
 #define GET_TIME_DS     (Double)Clock_getTicks() * (Double)Clock_tickPeriod / 100000
+#define MPU_DATA_SPAN 40
+#define BUFFER_SIZE 80
+#define WINDOW 3
+#define MESSAGE_COUNT 10
 
 /* Task */
 #define STACKSIZE 2048
 Char sensorTaskStack[STACKSIZE];
 Char uartTaskStack[STACKSIZE];
+Char dataAnalyzisTaskStack[STACKSIZE];
 
 /* State machine */
-enum state { WAITING=1, DATA_READY };
+enum state { WAITING=1, DATA_READY, SEND_DATA };
 enum state programState = WAITING;
 
+/* Enum for gesture */
+
+enum gesture { NONE=0, PETTING };
+enum gesture currentGesture = NONE;
+
+uint8_t uartInterruptFlag = 0;
+uint8_t uartBuffer[BUFFER_SIZE];
 double ambientLight = -1000.0;
 
 /* Power pin for MPU */
@@ -67,7 +81,7 @@ PIN_Config button0Config[] = {
 int collectDataFlag = 0;
 
 
-const int MPU_DATA_SPAN = 40; // 10 readings per second
+//const int MPU_DATA_SPAN = 40; // 10 readings per second
 float MPU_data[MPU_DATA_SPAN][7];
 
 
@@ -88,29 +102,71 @@ void button0Fxn(PIN_Handle handle, PIN_Id pinId)
     }
 }
 
-/* Task Functions */
-Void uartTaskFxn(UArg arg0, UArg arg1) {
+/* TASKS */
+/* INTERRRRUPT HANDLER */
+static void uartFxn(UART_Handle handle, void *rxBuf, size_t len) 
+{
+    UART_read(handle, rxBuf, BUFFER_SIZE);
+    uartInterruptFlag = 1;
+}
 
-    // JTKJ: Tehtï¿½vï¿½ 4. Lisï¿½ï¿½ UARTin alustus: 9600,8n1
-    // JTKJ: Exercise 4. Setup here UART connection as 9600,8n1
+static void uartTask(UArg arg0, UArg arg1) 
+{
+    // JTKJ: Tehtï¿½vï¿½ 3. Kun tila on oikea, tulosta sensoridata merkkijonossa debug-ikkunaan
+    //       Muista tilamuutos
+    // JTKJ: Exercise 3. Print out sensor data as string to debug window if the state is correct
+    //       Remember to modify state
 
-    while (1) {
+    // JTKJ: Tehtï¿½vï¿½ 4. Lï¿½hetï¿½ sama merkkijono UARTilla
+    // JTKJ: Exercise 4. Send the same sensor data string with UART
+    
+    UART_Handle uartHandle;
+    UART_Params uartParams;
 
-        // JTKJ: Tehtï¿½vï¿½ 3. Kun tila on oikea, tulosta sensoridata merkkijonossa debug-ikkunaan
-        //       Muista tilamuutos
-        // JTKJ: Exercise 3. Print out sensor data as string to debug window if the state is correct
-        //       Remember to modify state
+    char rec_msg[255];
+    char uartMsg[BUFFER_SIZE];
+    char msg[MESSAGE_COUNT][BUFFER_SIZE] = {
+        "id:2231,ping",
+        "id:2231,PET:1",
+        "id:2231,EAT:1",
+   };
 
-        // JTKJ: Tehtï¿½vï¿½ 4. Lï¿½hetï¿½ sama merkkijono UARTilla
-        // JTKJ: Exercise 4. Send the same sensor data string with UART
+   UART_Params_init(&uartParams);
+   uartParams.baudRate      = 9600;
+   uartParams.readMode      = UART_MODE_CALLBACK; // Keskeytyspohjainen vastaanotto
+   uartParams.readCallback  = &uartFxn; // Käsittelijäfunktio
+   uartParams.readDataMode  = UART_DATA_TEXT;
+   uartParams.writeDataMode = UART_DATA_TEXT;
 
-        // Just for sanity check for exercise, you can comment this out
-        //System_printf("uartTask\n");
-        //System_flush();
+    // UART käyttöön ohjelmassa
+   uartHandle = UART_open(Board_UART, &uartParams);
+   if (uartHandle == NULL) {
+      System_abort("Error opening the UART");
+   }
 
-        // Once per second, you can modify this
-        Task_sleep(1000000 / Clock_tickPeriod);
-    }
+   // Nyt tarvitsee käynnistää datan odotus
+   UART_read(uartHandle, uartBuffer, BUFFER_SIZE);
+
+   while(1) {
+
+       // sending message with UART through serial port
+       if (programState == DATA_READY && currentGesture != NONE) {
+           sprintf(uartMsg, msg[currentGesture]);
+           System_printf("uartMsg is: %s\n", uartMsg);
+           System_flush();
+           UART_write(uartHandle, uartMsg, sizeof(uartMsg));
+           memset(uartMsg, 0, BUFFER_SIZE);
+       }
+
+       if (uartInterruptFlag == 1) {
+           sprintf(rec_msg, "Interrupt happened. Received message is: %s\n", uartBuffer);
+           System_printf("%s\n", rec_msg);
+           System_flush();
+           uartInterruptFlag = 0;
+       }
+       programState = WAITING;
+       Task_sleep(100*1000 / Clock_tickPeriod);
+   }
 }
 
 Void dataCollectionTaskFxn(UArg arg0, UArg arg1)
@@ -142,7 +198,7 @@ Void dataCollectionTaskFxn(UArg arg0, UArg arg1)
     System_printf("MPU9250: Power ON\n");
     System_flush();
 
-    /* Open MPU I2C channel and setup MPU */
+    // Open MPU I2C channel and setup MPU
     i2cMPU = I2C_open(Board_I2C0, &i2cMPUParams);
     if (i2cMPU == NULL) {
       System_abort("Error Initializing I2C\n");
@@ -214,7 +270,7 @@ Void dataCollectionTaskFxn(UArg arg0, UArg arg1)
             }
             firstTimeFlag = 0;
 
-            if (!dataToPrintFlag) // start data collecting after not collecting
+            if (!dataToPrintFlag && programState == WAITING) // start data collecting after not collecting
             {
                 dataToPrintFlag = 1;
                 setZeroMpuData(MPU_data, MPU_DATA_SPAN);
@@ -231,18 +287,47 @@ Void dataCollectionTaskFxn(UArg arg0, UArg arg1)
             I2C_close(i2cMPU);
 
             addMpuData(MPU_data, MPU_DATA_SPAN, time, ax, ay, az, gx, gy, gz);
+            // programState = DATA_READY;
 
         } else { // not collecting data
             if (dataToPrintFlag)
             {
                 dataToPrintFlag = 0;
-                System_printf("Data collection stopped");
+                System_printf("Data collection stopped\n");
                 System_flush();
-                printMpuData(MPU_data, MPU_DATA_SPAN);
+                //printMpuData(MPU_data, MPU_DATA_SPAN);
+                programState = DATA_READY;
+                currentGesture = PETTING;
             }
             if (!setupNeededFlag) setupNeededFlag = 1;
         }
+        Task_sleep(100*1000 / Clock_tickPeriod);
+    }
+}
 
+void dataAnalyzisTask(UArg arg0, UArg arg1)
+{
+    float ax[40], ay[40], az[40];
+    while (1) {
+        if(programState == DATA_READY) {
+            intoArray(MPU_data, ax, 1, MPU_DATA_SPAN);
+            intoArray(MPU_data, ay, 2, MPU_DATA_SPAN);
+            intoArray(MPU_data, az, 3, MPU_DATA_SPAN);
+            //printArray(ay, MPU_DATA_SPAN);
+            movavg(ax, MPU_DATA_SPAN, WINDOW);
+            movavg(ay, MPU_DATA_SPAN, WINDOW);
+            movavg(az, MPU_DATA_SPAN, WINDOW);
+            //printArray(ay, MPU_DATA_SPAN);
+            if(isPetting(ay, ax, az, MPU_DATA_SPAN)) {
+                System_printf("FOUND GESTURE PETTING\n");
+                System_flush();
+                currentGesture = PETTING;
+                programState = SEND_DATA;
+            } else {
+                currentGesture = NONE;
+                programState = WAITING;
+            }
+        }
         Task_sleep(100*1000 / Clock_tickPeriod);
     }
 }
@@ -254,11 +339,18 @@ Int main(void) {
     Task_Params dataCollectionTaskParams;
     Task_Handle uartTaskHandle;
     Task_Params uartTaskParams;
+    Task_Handle dataAnalyzisTaskHandle;
+    Task_Params dataAnalyzisTaskParams;
 
     // Initialize board
     Board_initGeneral();
     Init6LoWPAN();
+
+    // Init i2c bus
     Board_initI2C();
+
+    // init serial communication port
+    Board_initUART();
 
     /* Task */
     Task_Params_init(&dataCollectionTaskParams);
@@ -270,15 +362,26 @@ Int main(void) {
         System_abort("Task create failed!");
     }
 
+
     Task_Params_init(&uartTaskParams);
     uartTaskParams.stackSize = STACKSIZE;
     uartTaskParams.stack = &uartTaskStack;
     uartTaskParams.priority=2;
-    uartTaskHandle = Task_create(uartTaskFxn, &uartTaskParams, NULL);
+    uartTaskHandle = Task_create(uartTask, &uartTaskParams, NULL);
     if (uartTaskHandle == NULL) {
         System_abort("Task create failed!");
     }
 
+    /*
+    Task_Params_init(&dataAnalyzisTaskParams);
+    dataAnalyzisTaskParams.stackSize = STACKSIZE;
+    dataAnalyzisTaskParams.stack = &dataAnalyzisTaskStack;
+    dataAnalyzisTaskParams.priority=2;
+    dataAnalyzisTaskHandle = Task_create(dataAnalyzisTask, &dataAnalyzisTaskParams, NULL);
+    if (dataAnalyzisTaskHandle == NULL) {
+        System_abort("Task create failed!");
+    }
+    */
 
     /* Power pin for MPU */
     MPUPowerPinHandle = PIN_open( &MPUPowerPinState, MPUPowerPinConfig );
