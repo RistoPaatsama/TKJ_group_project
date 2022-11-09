@@ -1,4 +1,4 @@
-
+/* C Standard library */
 #include <stdio.h>
 
 /* XDCtools files */
@@ -23,170 +23,114 @@
 #include "sensors/opt3001.h"
 #include "sensors/mpu9250.h"
 #include "custom/DataHandling.h"
-#include "custom/gestures.h"
-#include "custom/utilities.h"
+#include "custom/Music.h"
+#include "custom/Songs.h"
 
-#define GET_TIME_DS     (Double)Clock_getTicks() * (Double)Clock_tickPeriod / 100000
-#define MPU_DATA_SPAN 40
-#define BUFFER_SIZE 80
-#define WINDOW 3
-#define MESSAGE_COUNT 10
+/* Marcos */
+#define SLEEP(ms)               Task_sleep((ms)*1000 / Clock_tickPeriod)
+#define GET_TIME_DS             (Double)Clock_getTicks() * (Double)Clock_tickPeriod / 100000
 
-/* Task */
+#define MPU_DATA_SPAN           10
+#define SLIDING_MEAN_WINDOW     3
+#define BUFFER_SIZE             80
+#define MESSAGE_COUNT           10
+
+/* Task stacks */
 #define STACKSIZE 2048
-Char sensorTaskStack[STACKSIZE];
-Char uartTaskStack[STACKSIZE];
-Char dataAnalyzisTaskStack[STACKSIZE];
+Char mpuSensorTask_Stack[STACKSIZE];
+Char lightSensorTask_Stack[STACKSIZE];
+Char gestureAnalysisTask_Stack[STACKSIZE];
+Char uartWriteTask_Stack[STACKSIZE];
+Char uartReadTask_Stack[STACKSIZE];
+Char signalTask_Stack[STACKSIZE];
+Char playBackgroundSongTask_Stack[STACKSIZE];
 
-/* State machine */
-enum state { WAITING=1, DATA_READY, SEND_DATA };
-enum state programState = WAITING;
-
-/* Enum for gesture */
-
-enum gesture { NONE=0, PETTING };
-enum gesture currentGesture = NONE;
-
-uint8_t uartInterruptFlag = 0;
-uint8_t uartBuffer[BUFFER_SIZE];
-double ambientLight = -1000.0;
-
-/* Power pin for MPU */
+/* PIN VARIABLES */
+// MPU
 static PIN_Handle MPUPowerPinHandle;
 static PIN_State MPUPowerPinState;
 
-// Hox! Samalle painonapille kaksi erilaista konfiguraatiota
 PIN_Config MPUPowerPinConfig[] = {
    Board_MPU_POWER | PIN_GPIO_OUTPUT_EN | PIN_GPIO_HIGH | PIN_PUSHPULL | PIN_DRVSTR_MAX,
    PIN_TERMINATE
 };
 
-// MPU uses its own I2C interface
 static const I2CCC26XX_I2CPinCfg i2cMPUCfg = {
     .pinSDA = Board_I2C0_SDA1,
     .pinSCL = Board_I2C0_SCL1
 };
 
-/* Push buttons */
-int button0Flag = 0;
+/* Enums for State and Gesture */
+enum state { IDLE=0, READING_MPU_DATA, DETECTING_LIGHT_LEVEL, ANALYSING_DATA, SENDING_MESSAGE_UART, SIGNALLING_TO_USER, 
+            LISTENING_UART, BEEP_RECIEVED, PLAYING_BACKGROUND_MUSIC };
+enum state programState = READING_MPU_DATA;
 
-static PIN_Handle button0Handle;
-static PIN_State button0State;
-
-PIN_Config button0Config[] = {
-    Board_BUTTON0  | PIN_INPUT_EN | PIN_PULLUP | PIN_IRQ_BOTHEDGES,
-    PIN_TERMINATE
-};
-
-int collectDataFlag = 0;
+enum gesture { NONE=0, PETTING, PLAYING, SLEEPING, EATING, WALKING };
+enum gesture currentGesture = NONDE;
 
 
-//const int MPU_DATA_SPAN = 40; // 10 readings per second
+/* Global flags */
+uint8_t uartInterruptFlag = 0;
+
+/* Global variables */
+uint8_t uartBuffer[BUFFER_SIZE];
+
+
+/* DATA */
 float MPU_data[MPU_DATA_SPAN][7];
+float MPU_data_buffer[SLIDING_MEAN_WINDOW][7];
 
 
-/* button interrupt */
-void button0Fxn(PIN_Handle handle, PIN_Id pinId)
+/* INTERRUPT HANDLERS */
+
+static void uartFxn(UART_Handle handle, void *rxBuf, size_t len) 
 {
-    uint_t buttonValue = PIN_getInputValue( pinId );
+    uartInterruptFlag = 1;
+    UART_read(handle, rxBuf, BUFFER_SIZE);
+}
 
-    if (buttonValue) {
-        //button0Flag = 0;
-        //System_printf("Button 0 released\n");
-        //System_flush();
-    } else { // button pushed
-        collectDataFlag = !collectDataFlag;
-        //button0Flag = 1;
-        //System_printf("Button 0 pressed\n");
-        //System_flush();
+
+/* TASK FUNCTIONS */
+
+static void uartWriteTask_Fxn(UArg arg0, UArg arg1)
+{
+    // initialization
+
+    while (1) {
+
+        if (programState == SENDING_MESSAGE_UART) {
+            // execute state function
+
+        }
+        SLEEP(100);
     }
 }
 
-/* TASKS */
-/* INTERRRRUPT HANDLER */
-static void uartFxn(UART_Handle handle, void *rxBuf, size_t len) 
+
+Void uartReadTask_Fxn(UArg arg0, UArg arg1)
 {
-    UART_read(handle, rxBuf, BUFFER_SIZE);
-    uartInterruptFlag = 1;
+    // initialization
+
+    while (1) {
+
+        if (programState == LISTENING_UART) {
+            // execute state function
+
+            programState = DETECTING_LIGHT_LEVEL;
+        }
+        SLEEP(100);
+    }
 }
 
-static void uartTask(UArg arg0, UArg arg1) 
+
+Void mpuSensorTask_Fxn(UArg arg0, UArg arg1)
 {
-    // JTKJ: Tehtï¿½vï¿½ 3. Kun tila on oikea, tulosta sensoridata merkkijonossa debug-ikkunaan
-    //       Muista tilamuutos
-    // JTKJ: Exercise 3. Print out sensor data as string to debug window if the state is correct
-    //       Remember to modify state
+    // initialization
+    float time, ax, ay, az, gx, gy, gz;
+    float new_data[7], new_mean_data[7];
 
-    // JTKJ: Tehtï¿½vï¿½ 4. Lï¿½hetï¿½ sama merkkijono UARTilla
-    // JTKJ: Exercise 4. Send the same sensor data string with UART
-    
-    UART_Handle uartHandle;
-    UART_Params uartParams;
-
-    char rec_msg[255];
-    char uartMsg[BUFFER_SIZE];
-    char msg[MESSAGE_COUNT][BUFFER_SIZE] = {
-        "id:2231,ping",
-        "id:2231,PET:1",
-        "id:2231,EAT:1",
-   };
-
-   UART_Params_init(&uartParams);
-   uartParams.baudRate      = 9600;
-   uartParams.readMode      = UART_MODE_CALLBACK; // Keskeytyspohjainen vastaanotto
-   uartParams.readCallback  = &uartFxn; // Käsittelijäfunktio
-   uartParams.readDataMode  = UART_DATA_TEXT;
-   uartParams.writeDataMode = UART_DATA_TEXT;
-
-    // UART käyttöön ohjelmassa
-   uartHandle = UART_open(Board_UART, &uartParams);
-   if (uartHandle == NULL) {
-      System_abort("Error opening the UART");
-   }
-
-   // Nyt tarvitsee käynnistää datan odotus
-   UART_read(uartHandle, uartBuffer, BUFFER_SIZE);
-
-   while(1) {
-
-       // sending message with UART through serial port
-       if (programState == DATA_READY && currentGesture != NONE) {
-           sprintf(uartMsg, msg[currentGesture]);
-           System_printf("uartMsg is: %s\n", uartMsg);
-           System_flush();
-           UART_write(uartHandle, uartMsg, sizeof(uartMsg));
-           memset(uartMsg, 0, BUFFER_SIZE);
-       }
-
-       if (uartInterruptFlag == 1) {
-           sprintf(rec_msg, "Interrupt happened. Received message is: %s\n", uartBuffer);
-           System_printf("%s\n", rec_msg);
-           System_flush();
-           uartInterruptFlag = 0;
-       }
-       programState = WAITING;
-       Task_sleep(100*1000 / Clock_tickPeriod);
-   }
-}
-
-Void dataCollectionTaskFxn(UArg arg0, UArg arg1)
-{
-    //System_printf("sensorTaskFxn()\n");
-    //System_flush();
-
-    int dataToPrintFlag = 0;
-    int setupNeededFlag = 0;
-    int firstTimeFlag = 1;
-
-    double lux;
-    char buffer[128];
-
-    // I2C setup
-    I2C_Handle      i2c,        i2cMPU;
-    I2C_Params      i2cParams,  i2cMPUParams;
-
-    I2C_Params_init(&i2cParams);
-    i2cParams.bitRate = I2C_400kHz;
+    I2C_Handle      i2cMPU;
+    I2C_Params      i2cMPUParams;
 
     I2C_Params_init(&i2cMPUParams);
     i2cMPUParams.bitRate = I2C_400kHz;
@@ -214,174 +158,201 @@ Void dataCollectionTaskFxn(UArg arg0, UArg arg1)
 
     I2C_close(i2cMPU);
 
-
-    // open other I2C channel and setup periferals
-    i2c = I2C_open(Board_I2C_TMP, &i2cParams);
-    if (i2c == NULL) {
-      System_abort("Error Initializing I2C\n");
-    }
-
-    Task_sleep(100000 / Clock_tickPeriod);
-    opt3001_setup(&i2c);
-    I2C_close(i2c);
-
     while (1)
     {
-        float time, ax, ay, az, gx, gy, gz;
-
-        /*sprintf(buffer, "time since program start in 1/10th seconds %.5f\n", GET_TIME_DS );
-        System_printf(buffer);
-        System_flush();*/
-
-        // Read light sensor data
-        /*i2c = I2C_open(Board_I2C_TMP, &i2cParams);
-        if (i2c == NULL) {
-            System_abort("Error Initializing I2C\n");
-        }
-        lux = opt3001_get_data(&i2c);
-        I2C_close(i2c);*/
-
-        //sprintf(buffer, "(in sensorTask) light intensity: %.4f lux\n", lux);
-
-        //System_printf(buffer);
-        //System_flush();
-
-        /* GET AND PRINT MPU DATA */
-
-        if (collectDataFlag)
+        if (programState == READING_MPU_DATA)
         {
-            if (setupNeededFlag && !firstTimeFlag) // setup again after button press
-            {
-                i2cMPU = I2C_open(Board_I2C0, &i2cMPUParams);
-                if (i2cMPU == NULL) {
-                  System_abort("Error Initializing I2C\n");
-                }
-
-                System_printf("MPU9250: Setup and calibration...\n");
-                System_flush();
-
-                mpu9250_setup(&i2cMPU);
-
-                System_printf("MPU9250: Setup and calibration OK\n");
-                System_flush();
-
-                I2C_close(i2cMPU);
-                setupNeededFlag = 0;
-            }
-            firstTimeFlag = 0;
-
-            if (!dataToPrintFlag && programState == WAITING) // start data collecting after not collecting
-            {
-                dataToPrintFlag = 1;
-                setZeroMpuData(MPU_data, MPU_DATA_SPAN);
-                System_printf("\nStarting data collection\n");
-                System_flush();
-            }
-
             i2cMPU = I2C_open(Board_I2C0, &i2cMPUParams);
             if (i2cMPU == NULL) {
                 System_abort("Error Initializing I2C\n");
             }
-            mpu9250_get_data(&i2cMPU, &ax, &ay, &az, &gx, &gy, &gz);
+            mpu9250_get_data(&i2cMPU, new_data);
             time = GET_TIME_DS;
             I2C_close(i2cMPU);
 
-            addMpuData(MPU_data, MPU_DATA_SPAN, time, ax, ay, az, gx, gy, gz);
-            // programState = DATA_READY;
+            //addData(MPU_data_buffer, SLIDING_MEAN_WINDOW, new_data);
+            //getAverage(MPU_data_buffer, new_mean_data);
+            //new_mean_data[0] = time;
+            addData(MPU_data, MPU_DATA_SPAN, new_data);
 
-        } else { // not collecting data
-            if (dataToPrintFlag)
-            {
-                dataToPrintFlag = 0;
-                System_printf("Data collection stopped\n");
-                System_flush();
-                //printMpuData(MPU_data, MPU_DATA_SPAN);
-                programState = DATA_READY;
-                currentGesture = PETTING;
-            }
-            if (!setupNeededFlag) setupNeededFlag = 1;
+            programState = ANALYSING_DATA;
         }
-        Task_sleep(100*1000 / Clock_tickPeriod);
+        SLEEP(100);
     }
 }
 
-void dataAnalyzisTask(UArg arg0, UArg arg1)
+
+Void lightSensorTask_Fxn(UArg arg0, UArg arg1)
 {
-    float ax[40], ay[40], az[40];
+    // initialization
+
     while (1) {
-        if(programState == DATA_READY) {
-            intoArray(MPU_data, ax, 1, MPU_DATA_SPAN);
-            intoArray(MPU_data, ay, 2, MPU_DATA_SPAN);
-            intoArray(MPU_data, az, 3, MPU_DATA_SPAN);
-            //printArray(ay, MPU_DATA_SPAN);
-            movavg(ax, MPU_DATA_SPAN, WINDOW);
-            movavg(ay, MPU_DATA_SPAN, WINDOW);
-            movavg(az, MPU_DATA_SPAN, WINDOW);
-            //printArray(ay, MPU_DATA_SPAN);
-            if(isPetting(ay, ax, az, MPU_DATA_SPAN)) {
-                System_printf("FOUND GESTURE PETTING\n");
-                System_flush();
-                currentGesture = PETTING;
-                programState = SEND_DATA;
-            } else {
-                currentGesture = NONE;
-                programState = WAITING;
-            }
+
+        if (programState == DETECTING_LIGHT_LEVEL) {
+            // execute state function
+
+            programState = READING_MPU_DATA;
         }
-        Task_sleep(100*1000 / Clock_tickPeriod);
+        SLEEP(100);
     }
 }
 
+
+Void gestureAnalysisTask_Fxn(UArg arg0, UArg arg1)
+{
+    // initialization
+    float variance[7], mean[7], max[7], min[7];
+
+    while (1)
+    {
+        if ( programState == ANALYSING_DATA )
+        {
+            //analyseData(MPU_data, variance, mean, max, min);
+
+            if (isPetting(MPU_data)) {
+                currentGesture = PETTING;
+            } (isPlaying(MPU_data)) {
+                currentGesture = PLAYING;
+            } else {
+              currentGesture = NONE;
+            }
+
+            programState = LISTENING_UART;
+        }
+        SLEEP(100);
+    }
+}
+
+
+Void signalTask_Fxn(UArg arg0, UArg arg1)
+{
+    // initialization
+
+    while (1)
+    {
+        if (programState == SIGNALLING_TO_USER) {
+            // 
+
+        } else if (programState == BEEP_RECIEVED) {
+            // 
+        }
+        SLEEP(50);
+    }
+}
+
+
+Void playBackgroundSongTask_Fxn(UArg arg0, UArg arg1)
+{
+    // initialization
+
+    while (1) {
+
+        if (programState == PLAYING_BACKGROUND_MUSIC) {
+            // execute state function
+            
+        }
+        SLEEP(100);
+    }
+}
+
+
+
+
+
+/* MAIN */
 Int main(void) {
 
-    // Task variables
-    Task_Handle dataCollectionTaskHandle;
-    Task_Params dataCollectionTaskParams;
-    Task_Handle uartTaskHandle;
-    Task_Params uartTaskParams;
-    Task_Handle dataAnalyzisTaskHandle;
-    Task_Params dataAnalyzisTaskParams;
+    /* Task handles and params */
+    Task_Handle mpuSensorTask_Handle;
+    Task_Params mpuSensorTask_Params;
+
+    Task_Handle lightSensorTask_Handle;
+    Task_Params lightSensorTask_Params;
+
+    Task_Handle gestureAnalysisTask_Handle;
+    Task_Params gestureAnalysisTask_Params;
+
+    Task_Handle uartWriteTask_Handle;
+    Task_Params uartWriteTask_Params;
+
+    Task_Handle uartReadTask_Handle;
+    Task_Params uartReadTask_Params;
+
+    Task_Handle signalTask_Handle;
+    Task_Params signalTask_Params;
+
+    Task_Handle playBackgroundSongTask_Handle;
+    Task_Params playBackgroundSongTask_Params;
 
     // Initialize board
     Board_initGeneral();
     Init6LoWPAN();
-
-    // Init i2c bus
     Board_initI2C();
 
-    // init serial communication port
-    Board_initUART();
-
-    /* Task */
-    Task_Params_init(&dataCollectionTaskParams);
-    dataCollectionTaskParams.stackSize = STACKSIZE;
-    dataCollectionTaskParams.stack = &sensorTaskStack;
-    dataCollectionTaskParams.priority=2;
-    dataCollectionTaskHandle = Task_create(dataCollectionTaskFxn, &dataCollectionTaskParams, NULL);
-    if (dataCollectionTaskHandle == NULL) {
-        System_abort("Task create failed!");
+    /* Initializing Tasks */
+    Task_Params_init(&mpuSensorTask_Params);
+    mpuSensorTask_Params.stackSize = STACKSIZE;
+    mpuSensorTask_Params.stack = &mpuSensorTask_Stack;
+    mpuSensorTask_Params.priority=2;
+    mpuSensorTask_Handle = Task_create(mpuSensorTask_Fxn, &mpuSensorTask_Params, NULL);
+    if (mpuSensorTask_Handle == NULL) {
+        System_abort("mpuSensorTask create failed!");
     }
 
-
-    Task_Params_init(&uartTaskParams);
-    uartTaskParams.stackSize = STACKSIZE;
-    uartTaskParams.stack = &uartTaskStack;
-    uartTaskParams.priority=2;
-    uartTaskHandle = Task_create(uartTask, &uartTaskParams, NULL);
-    if (uartTaskHandle == NULL) {
-        System_abort("Task create failed!");
+    Task_Params_init(&lightSensorTask_Params);
+    lightSensorTask_Params.stackSize = STACKSIZE;
+    lightSensorTask_Params.stack = &lightSensorTask_Stack;
+    lightSensorTask_Params.priority=2;
+    lightSensorTask_Handle = Task_create(lightSensorTask_Fxn, &lightSensorTask_Params, NULL);
+    if (lightSensorTask_Handle == NULL) {
+        System_abort("lightSensorTask create failed!");
     }
 
-    /*
-    Task_Params_init(&dataAnalyzisTaskParams);
-    dataAnalyzisTaskParams.stackSize = STACKSIZE;
-    dataAnalyzisTaskParams.stack = &dataAnalyzisTaskStack;
-    dataAnalyzisTaskParams.priority=2;
-    dataAnalyzisTaskHandle = Task_create(dataAnalyzisTask, &dataAnalyzisTaskParams, NULL);
-    if (dataAnalyzisTaskHandle == NULL) {
-        System_abort("Task create failed!");
+    Task_Params_init(&gestureAnalysisTask_Params);
+    gestureAnalysisTask_Params.stackSize = STACKSIZE;
+    gestureAnalysisTask_Params.stack = &gestureAnalysisTask_Stack;
+    gestureAnalysisTask_Params.priority=2;
+    gestureAnalysisTask_Handle = Task_create(gestureAnalysisTask_Fxn, &gestureAnalysisTask_Params, NULL);
+    if (gestureAnalysisTask_Handle == NULL) {
+        System_abort("gestureAnalysisTask create failed!");
     }
-    */
+
+    Task_Params_init(&uartWriteTask_Params);
+    uartWriteTask_Params.stackSize = STACKSIZE;
+    uartWriteTask_Params.stack = &uartWriteTask_Stack;
+    uartWriteTask_Params.priority=2;
+    uartWriteTask_Handle = Task_create(uartWriteTask_Fxn, &uartWriteTask_Params, NULL);
+    if (uartWriteTask_Handle == NULL) {
+        System_abort("uartWriteTask create failed!");
+    }
+
+    Task_Params_init(&uartReadTask_Params);
+    uartReadTask_Params.stackSize = STACKSIZE;
+    uartReadTask_Params.stack = &uartReadTask_Stack;
+    uartReadTask_Params.priority=2;
+    uartReadTask_Handle = Task_create(uartReadTask_Fxn, &uartReadTask_Params, NULL);
+    if (uartReadTask_Handle == NULL) {
+        System_abort("uartReadTask create failed!");
+    }
+
+    Task_Params_init(&signalTask_Params);
+    signalTask_Params.stackSize = STACKSIZE;
+    signalTask_Params.stack = &signalTask_Stack;
+    signalTask_Params.priority=2;
+    signalTask_Handle = Task_create(signalTask_Fxn, &signalTask_Params, NULL);
+    if (signalTask_Handle == NULL) {
+        System_abort("signalTask create failed!");
+    }
+
+    Task_Params_init(&playBackgroundSongTask_Params);
+    playBackgroundSongTask_Params.stackSize = STACKSIZE;
+    playBackgroundSongTask_Params.stack = &playBackgroundSongTask_Stack;
+    playBackgroundSongTask_Params.priority=2;
+    playBackgroundSongTask_Handle = Task_create(playBackgroundSongTask_Fxn, &playBackgroundSongTask_Params, NULL);
+    if (playBackgroundSongTask_Handle == NULL) {
+        System_abort("playBackgroundSongTask create failed!");
+    }
+
 
     /* Power pin for MPU */
     MPUPowerPinHandle = PIN_open( &MPUPowerPinState, MPUPowerPinConfig );
@@ -389,17 +360,9 @@ Int main(void) {
       System_abort("Error initializing MPU power pin\n");
     }
 
-    /* Push buttons */
-    button0Handle = PIN_open( &button0State, button0Config );
-    if(!button0Handle) {
-        System_abort("Error initializing button 0\n");
-    }
-    if (PIN_registerIntCb( button0Handle, &button0Fxn ) != 0) {
-        System_abort("Error registering button 0 callback function");
-    }
 
     /* Sanity check */
-    System_printf("Hello world!\n");
+    System_printf("Setup complete! Starting BIOS!\n\n\n");
     System_flush();
 
     BIOS_start();
