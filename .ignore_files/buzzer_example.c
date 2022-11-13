@@ -64,24 +64,19 @@ Void taskFxn(UArg arg0, UArg arg1)
 
         if (playingMusicFlag)
         {
-            //playSong(hBuzzer, imitation_game_song);
 
             int i;
-            uint16_t *jingles[] = {satisfied, jingle, low_battery, lazer_beams};
+            uint16_t jingles[] = {gesture_detected, message_not_recieved, gesture_detected, too_much, activate, deactivate, low_health};
+            //uint16_t jingles[] = {lullaby};
 
-            for (i = 0; i < 4; i++)
+            for (i = 0; i < sizeof(jingles) / sizeof(jingles[0]); i++)
             {
                 playSong(hBuzzer, jingles[i]);
-                SLEEP(500);
-                playSong(hBuzzer, jingles[i]);
-                SLEEP(500);
+                SLEEP(1500);
+                if (interruptFlag){
+                    break;
+                }
             }
-
-            playSong(hBuzzer, tetris_theme_song);
-            SLEEP(500);
-
-            //playSong(hBuzzer, testing_slides);
-
         }
 
         SLEEP(1000);

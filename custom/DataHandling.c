@@ -32,9 +32,11 @@ void printMpuData(float d[][7], const int span)
     int i;
     char buffer[64];
 
-    System_printf("\nPrinting MPU data:\n\n");
-    System_printf("time,ax,ay,az,gx,gy,gz\n");
-    System_flush();
+    if (span > 1){
+        System_printf("\nPrinting MPU data:\n\n");
+        System_printf("time,ax,ay,az,gx,gy,gz\n");
+        System_flush();
+    }
 
     for (i = span-1; i >= 0; i--)
     {

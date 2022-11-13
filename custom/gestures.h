@@ -8,6 +8,6 @@
 #ifndef GESTURES_H_
 #define GESTURES_H_
 
-int isPetting(float *ay, float *ax, float *az, uint8_t array_size);
+int isPetting(float data[][7], int span);
 
 #endif

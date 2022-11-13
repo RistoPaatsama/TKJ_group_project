@@ -72,21 +72,14 @@ PIN_Config cBuzzer[] = {
 };
 
 // Right button
+int buttonRightFlag = 0;
+
 static PIN_Handle buttonRight_Handle;
 static PIN_State buttonRight_State;
 
 PIN_Config buttonRight_Config[] = {
     Board_BUTTON0  | PIN_INPUT_EN | PIN_PULLUP | PIN_IRQ_BOTHEDGES,
     PIN_TERMINATE
-};
-
-// LED RED
-static PIN_Handle ledRed_Handle;
-static PIN_State ledRed_State;
-
-PIN_Config ledRed_Config[] = {
-   Board_LED1 | PIN_GPIO_OUTPUT_EN | PIN_GPIO_LOW | PIN_PUSHPULL | PIN_DRVSTR_MAX,
-   PIN_TERMINATE // Asetustaulukko lopetetaan aina tällä vakiolla
 };
 
 // timeout Clock
@@ -112,13 +105,11 @@ enum message currentMessage = NO_MESSAGE;
 /* Global flags */
 uint8_t uartInterruptFlag = 0;
 uint8_t pongRecievedFlag = 1;
-uint8_t lastCommWasBeepFlag = 1;    // tells the program if it sent a command or recieved a beep last
 
 /* Global variables */
 uint8_t uartBuffer[BUFFER_SIZE];
 char printBuffer[127];
 int16_t commandSentTime = 0;
-float buttonRight_PressTime = 0.0;
 
 /* DATA */
 float MPU_data[MPU_DATA_SPAN][7];
@@ -148,32 +139,23 @@ Void buttonRight_Fxn(PIN_Handle handle, PIN_Id pinId)
     uint_t buttonValue = PIN_getInputValue( pinId );
 
     if (buttonValue) { // button released
-        
         // 
 
     } else { // button pushed
 
-        if ( (GET_TIME_DS - buttonRight_PressTime) > 1 )
-        {
+        //System_printf("Button pushed. Current state: %d\n", programState);
+        //System_flush();
 
-            System_printf("SM activation toggled! State: %d\n", programState);
-            System_flush();
+        if (programState != IDLE_STATE) {
+            programState = IDLE_STATE;
+            currentMessage = DEACTIVATED_SM;
+            currentGesture = NO_GESTURE;
 
-            if (programState != IDLE_STATE) {
-                programState = IDLE_STATE;
-                currentMessage = DEACTIVATED_SM;
-                PIN_setOutputValue( ledRed_Handle, Board_LED1, 1 );
-
-            } else {
-                programState = defaultStartState;
-                currentMessage = ACTIVATED_SM;
-                PIN_setOutputValue( ledRed_Handle, Board_LED1, 0 );
-            }
-
-            buttonRight_PressTime = GET_TIME_DS;
+        } else {
+            programState = defaultStartState;
+            currentMessage = ACTIVATED_SM;
         }
     }
-    
 }
 
 /* TASK FUNCTIONS */
@@ -225,7 +207,6 @@ static void uartWriteTask_Fxn(UArg arg0, UArg arg1)
             UART_write(uartHandle, uartMsg, sizeof(uartMsg));
             Clock_start(timeoutClock_Handle); // timeout clock for checking pong
             pongRecievedFlag = 0;
-            lastCommWasBeepFlag = 0;
 
             if (programState != IDLE_STATE) programState = SIGNALLING_TO_USER;
         }
@@ -269,7 +250,7 @@ Void uartReadTask_Fxn(UArg arg0, UArg arg1)
 
                 if (stringContainsAt(uartMsgRec, beep_msg, 0)) { // BEEP RECIEVED
 
-                    if ( lastCommWasBeepFlag == 1 &&
+                    if (currentGesture == NO_GESTURE &&
                         stringContainsAt(uartMsgRec, low_health_msg1, msg_start_index) ||
                         stringContainsAt(uartMsgRec, low_health_msg2, msg_start_index) ||
                         stringContainsAt(uartMsgRec, low_health_msg3, msg_start_index) )
@@ -277,7 +258,7 @@ Void uartReadTask_Fxn(UArg arg0, UArg arg1)
                         currentMessage = LOW_HEALTH;
                     }
 
-                    else if ( lastCommWasBeepFlag == 0 &&
+                    else if (   currentGesture != NO_GESTURE &&
                                 stringContainsAt(uartMsgRec, too_full_msg1, msg_start_index) ||
                                 stringContainsAt(uartMsgRec, too_full_msg2, msg_start_index) ||
                                 stringContainsAt(uartMsgRec, too_full_msg3, msg_start_index) )
@@ -289,8 +270,6 @@ Void uartReadTask_Fxn(UArg arg0, UArg arg1)
                     {
                         currentMessage = DEATH;
                     }
-
-                    lastCommWasBeepFlag = 1;
                 
                 } else if (stringContainsAt(uartMsgRec, pong_msg, 0)) { // PONG RECIEVED
 
@@ -301,7 +280,7 @@ Void uartReadTask_Fxn(UArg arg0, UArg arg1)
             }
             if (programState != IDLE_STATE) programState = READING_MPU_DATA;
         }
-        //SLEEP(100);
+        SLEEP(100);
     }
 }
 
@@ -321,7 +300,6 @@ Void lightSensorTask_Fxn(UArg arg0, UArg arg1)
         }
         SLEEP(100);
     }
-
 }
 
 
@@ -382,7 +360,7 @@ Void mpuSensorTask_Fxn(UArg arg0, UArg arg1)
 
             addMpuData(MPU_data, MPU_DATA_SPAN, time, 10*ax, 10*ay, 10*az, gx, gy, gz);
 
-            if (programState != IDLE_STATE) programState = ANALYSING_DATA;
+            if (programState != IDLE_STATE) programState = READING_MPU_DATA;
         }
         SLEEP(100);
     }
@@ -394,6 +372,7 @@ Void mpuSensorTask_Fxn(UArg arg0, UArg arg1)
  */
 Void gestureAnalysisTask_Fxn(UArg arg0, UArg arg1)
 {
+    // initialization
     float variance[7], mean[7], max[7], min[7];
 
     while (1) {
@@ -459,20 +438,16 @@ Void signalTask_Fxn(UArg arg0, UArg arg1)
 
             } else if (currentMessage == DEACTIVATED_SM) {
                 playSong(buzzerHandle, deactivate_signal);
-                System_printf("SM Deactivated\n");
-                System_flush();
 
             } else if (currentMessage == ACTIVATED_SM) {
                 playSong(buzzerHandle, activate_signal);
-                System_printf("SM Activated\n");
-                System_flush();
 
             }
 
             currentMessage = NO_MESSAGE;
             if (programState != IDLE_STATE) programState = READING_MPU_DATA; //LISTENING_UART;
         }
-        SLEEP(100);
+        SLEEP(50);
     }
 }
 
@@ -571,7 +546,7 @@ Int main(void) {
     Task_Params_init(&uartReadTask_Params);
     uartReadTask_Params.stackSize = STACKSIZE;
     uartReadTask_Params.stack = &uartReadTask_Stack;
-    uartReadTask_Params.priority=1;
+    uartReadTask_Params.priority=2;
     uartReadTask_Handle = Task_create(uartReadTask_Fxn, &uartReadTask_Params, NULL);
     if (uartReadTask_Handle == NULL) {
         System_abort("uartReadTask create failed!");
@@ -618,12 +593,6 @@ Int main(void) {
         System_abort("Error registering button 0 callback function");
     }
 
-    /* LEDs */
-    ledRed_Handle = PIN_open(&ledRed_State, ledRed_Config);
-    if(!ledRed_Handle) {
-      System_abort("Error initializing LED pins\n");
-    }
-
     /* Clock for checking ping timeout */
     Clock_Params_init(&timeoutClock_Params);
     timeoutClock_Params.period = 0;
@@ -639,8 +608,7 @@ Int main(void) {
     System_printf("Setup complete! Starting BIOS!\n\n\n");
     System_flush();
 
-    BIOS_start();
-    programState = defaultStartState;
+BIOS_start();
 
     return (0);
 }

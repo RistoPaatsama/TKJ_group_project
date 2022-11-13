@@ -1,5 +1,5 @@
 /* 
- * Library by Matt Stirling
+ * Library by Matt Stirling. Created in October 2022.
  * For making playing musical notes easier on the Sensor Tag buzzer
 */ 
 

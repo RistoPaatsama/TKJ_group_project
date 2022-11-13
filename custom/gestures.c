@@ -4,17 +4,17 @@
 
 #include "gestures.h"
 
-int isPetting(float *ay, float *ax, float *az, uint8_t span)
+int isPetting(float data[][7], int span)
 {
-    float ay_threshold = 0.4;
-    float ax_threshold = 0.1;
-    float az_threshold = 0.9;
+    float ay_threshold = 5;
+    float ax_threshold = 0.5;
+    float az_threshold = 0.5;
     int i;
 
-    for (i = 0; i < span; i++)
+    for (i = 0; i < 1; i++)
     {
-        if (fabs(ay[i]) > ay_threshold && fabs(ax[i]) < ax_threshold && fabs(az[i]) > az_threshold)
-        {
+        if ( fabs(data[i][2]) > ay_threshold ) {
+        //if ( ( fabs(data[i][1]) < ax_threshold ) && ( fabs(data[i][2]) > ay_threshold ) && ( fabs(data[i][3]-10) > az_threshold ) ) {
             return 1;
         }
     }

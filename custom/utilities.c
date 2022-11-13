@@ -4,7 +4,7 @@
 #include <xdc/std.h>
 #include <xdc/runtime/System.h>
 
-#include "utilities.h"
+#include "Utilities.h"
 
 // calculates moving average for array
 void movavg(float *array, uint8_t array_size, uint8_t window_size)
@@ -53,4 +53,28 @@ void printArray(float *array, uint8_t span)
     }
     System_printf("\n");
     System_flush();
+}
+
+
+int stringContainsAt(char *str, char *sub, int i)
+{
+    char *ptr1 = str;
+    char *ptr2 = sub;
+    int j;
+
+    // move pointer 1 to the i:th character of str
+    for (j = 0; j < i; j++){
+        ptr1++;
+        if (*ptr1 == '\0'){
+            return 0;
+        }
+    }
+
+    while (*ptr2 != '\0'){
+        if ( *ptr1++ != *ptr2++ ) {
+            return 0;
+        }
+    }
+
+    return 1;
 }
