@@ -9,5 +9,7 @@
 #define GESTURES_H_
 
 int isPetting(float data[][7], int span);
+int isEating(float data[][7], int span);
+int isPlaying(float data[][7], int span);
 
 #endif

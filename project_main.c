@@ -332,7 +332,7 @@ Void lightSensorTask_Fxn(UArg arg0, UArg arg1)
 Void mpuSensorTask_Fxn(UArg arg0, UArg arg1)
 {
     float time, ax, ay, az, gx, gy, gz;
-    float new_data[7], new_mean_data[7];
+    //float new_data[7], new_mean_data[7];
 
     I2C_Handle      i2cMPU;
     I2C_Params      i2cMPUParams;
@@ -395,7 +395,7 @@ Void mpuSensorTask_Fxn(UArg arg0, UArg arg1)
  */
 Void gestureAnalysisTask_Fxn(UArg arg0, UArg arg1)
 {
-    float variance[7], mean[7], max[7], min[7];
+    //float variance[7], mean[7], max[7], min[7];
 
     while (1) {
         if ( programState == ANALYSING_DATA ) {
@@ -406,11 +406,18 @@ Void gestureAnalysisTask_Fxn(UArg arg0, UArg arg1)
             //analyseData(MPU_data, variance, mean, max, min);
             //printMpuData(MPU_data, 1);
 
-            if (isPetting(MPU_data, MPU_DATA_SPAN)) {
-                //System_printf("Petting detected!\n");
+            if (isPetting(MPU_data, MPU_DATA_SPAN)) { //isPetting(MPU_data, MPU_DATA_SPAN))
+                System_printf("Petting detected!\n");
                 System_flush();
                 currentGesture = PETTING;
-
+            } else if (isEating(MPU_data, MPU_DATA_SPAN)) {
+                System_printf("Eating detected!\n");
+                System_flush();
+                currentGesture = EATING;
+            } else if (isPlaying(MPU_data, MPU_DATA_SPAN)) {
+                System_printf("Playing detected!\n");
+                System_flush();
+                currentGesture = PLAYING;
             } else {
                 currentGesture = NO_GESTURE;
             }
@@ -450,7 +457,7 @@ Void signalTask_Fxn(UArg arg0, UArg arg1)
                 playSong(buzzerHandle, low_health_signal);
 
             } else if (currentMessage == NO_PONG_RECIEVED) {
-                playSong(buzzerHandle, message_not_recieved_signal);
+                //playSong(buzzerHandle, message_not_recieved_signal);
             
             } else if (currentMessage == DEATH) {
                 playSong(buzzerHandle, requiem);
