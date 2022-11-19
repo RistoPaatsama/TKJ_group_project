@@ -27,6 +27,7 @@
 #include "custom/Utilities.h"
 #include "custom/Music.h"
 #include "custom/Songs.h"
+#include "custom/gestures.h"
 
 /* Marcos */
 #define SLEEP(ms)               Task_sleep((ms)*1000 / Clock_tickPeriod)
@@ -527,6 +528,7 @@ Int main(void) {
     Board_initGeneral();
     Init6LoWPAN();
     Board_initI2C();
+    Board_initUART();
 
     /* Initializing Tasks */
     
