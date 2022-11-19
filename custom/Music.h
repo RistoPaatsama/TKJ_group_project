@@ -63,4 +63,6 @@ int getNoteFrequency(const int i, const int oct);
 void setBMP(int bmp);
 int getBMP();
 
+int playSongInterruptible(PIN_Handle buzzerHandle, const uint16_t song[], int *state, int playCondition);
+
 #endif

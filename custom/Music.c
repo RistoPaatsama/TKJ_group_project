@@ -62,6 +62,16 @@ int playSong(PIN_Handle buzzerHandle, const uint16_t song[])
 }
 
 
+int playSongInterruptible(PIN_Handle buzzerHandle, const uint16_t song[], int *state, int playCondition)
+{
+    while (*state == playCondition) {
+        System_printf("LULLABY PLAYING!!!\n");
+        System_flush();
+    }
+    return 0;
+}
+
+
 // plays notes with automatic small pause at end
 void playNote(char *note, float length){
     playNoteSt(note, length, 0.05);

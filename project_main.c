@@ -98,8 +98,8 @@ static Clock_Params timeoutClock_Params;
 /* Enums for State and Gesture */
 enum state { IDLE_STATE=0, READING_MPU_DATA, DETECTING_LIGHT_LEVEL, ANALYSING_DATA, SENDING_MESSAGE_UART, SIGNALLING_TO_USER,
             LISTENING_UART, BEEP_RECIEVED, PLAYING_BACKGROUND_MUSIC, NO_RESPONSE_RECIEVED };
-enum state programState = READING_MPU_DATA;
-enum state defaultStartState = READING_MPU_DATA;
+enum state defaultStartState = DETECTING_LIGHT_LEVEL;
+enum state programState = DETECTING_LIGHT_LEVEL;
 
 
 enum gesture { NO_GESTURE=0, PETTING, PLAYING, SLEEPING, EATING, WALKING };
@@ -312,17 +312,53 @@ Void uartReadTask_Fxn(UArg arg0, UArg arg1)
  */
 Void lightSensorTask_Fxn(UArg arg0, UArg arg1)
 {
-    // initialization
+    double lux;
+    double Sleep_Light_Threshold = 50;
+
+    I2C_Handle      i2c;
+    I2C_Params      i2cParams;
+
+    I2C_Params_init(&i2cParams);
+    i2cParams.bitRate = I2C_400kHz;
+
+    i2c = I2C_open(Board_I2C_TMP, &i2cParams);
+    if (i2c == NULL) {
+        System_abort("Error Initializing I2C\n");
+    }
+
+    Task_sleep( 100000 / Clock_tickPeriod );
+    opt3001_setup(&i2c);
+
+    I2C_close(i2c);
 
     while (1) {
-        if (programState == DETECTING_LIGHT_LEVEL) {
-            // execute state function
+        if (programState == DETECTING_LIGHT_LEVEL || programState == PLAYING_BACKGROUND_MUSIC) {
 
-            if (programState != IDLE_STATE) programState = READING_MPU_DATA;
+            i2c = I2C_open(Board_I2C_TMP, &i2cParams);
+            if (i2c == NULL) {
+                System_abort("Error Initializing I2C\n");
+            }
+            
+            lux = opt3001_get_data(&i2c);
+            I2C_close(i2c);
+
+            System_printf("Light level: %.2f\n", lux);
+            System_flush();
+
+            // if SM not deactivated
+            if (programState != IDLE_STATE) {
+                if ( lux != -1 && lux < Sleep_Light_Threshold ) {
+                    System_printf("Dark enough to sleep\n");
+                    System_flush();
+                    programState = DETECTING_LIGHT_LEVEL;
+                
+                } else {
+                    programState = DETECTING_LIGHT_LEVEL;
+                }
+            }
         }
         SLEEP(100);
     }
-
 }
 
 
@@ -332,7 +368,7 @@ Void lightSensorTask_Fxn(UArg arg0, UArg arg1)
 Void mpuSensorTask_Fxn(UArg arg0, UArg arg1)
 {
     float time, ax, ay, az, gx, gy, gz;
-    float new_data[7], new_mean_data[7];
+    //float new_data[7], new_mean_data[7];
 
     I2C_Handle      i2cMPU;
     I2C_Params      i2cMPUParams;
@@ -395,7 +431,7 @@ Void mpuSensorTask_Fxn(UArg arg0, UArg arg1)
  */
 Void gestureAnalysisTask_Fxn(UArg arg0, UArg arg1)
 {
-    float variance[7], mean[7], max[7], min[7];
+    //float variance[7], mean[7], max[7], min[7];
 
     while (1) {
         if ( programState == ANALYSING_DATA ) {
@@ -489,10 +525,11 @@ Void playBackgroundSongTask_Fxn(UArg arg0, UArg arg1)
         if (programState == PLAYING_BACKGROUND_MUSIC) {
 
             // execute state function
+            //playSongInterruptible(buzzerHandle, lullaby, &programState, PLAYING_BACKGROUND_MUSIC);
             
-            if (programState != IDLE_STATE) programState = READING_MPU_DATA;
+            //if (programState != IDLE_STATE) programState = READING_MPU_DATA;
         }
-        SLEEP(100);
+        //SLEEP(100);
     }
 }
 
