@@ -27,6 +27,7 @@
 #include "custom/Utilities.h"
 #include "custom/Music.h"
 #include "custom/Songs.h"
+#include "custom/gestures.h"
 
 /* Marcos */
 #define SLEEP(ms)               Task_sleep((ms)*1000 / Clock_tickPeriod)
@@ -220,7 +221,7 @@ static void uartWriteTask_Fxn(UArg arg0, UArg arg1)
         if (programState == SENDING_MESSAGE_UART) {
 
             sprintf(uartMsg, "%s,%s,ping", tag_id, msg[3]);
-            System_printf("Sending uart message: %s\n", uartMsg);
+            //System_printf("Sending uart message: %s\n", uartMsg);
             System_flush();
             UART_write(uartHandle, uartMsg, sizeof(uartMsg));
             Clock_start(timeoutClock_Handle); // timeout clock for checking pong
@@ -264,7 +265,7 @@ Void uartReadTask_Fxn(UArg arg0, UArg arg1)
                 strcpy(uartMsgRec, uartBuffer);
                 memset(uartBuffer, 0, BUFFER_SIZE);
 
-                System_printf("Revieced UART message: %s\n", uartMsgRec);
+                //System_printf("Revieced UART message: %s\n", uartMsgRec);
                 System_flush();
 
                 if (stringContainsAt(uartMsgRec, beep_msg, 0)) { // BEEP RECIEVED
@@ -365,7 +366,7 @@ Void mpuSensorTask_Fxn(UArg arg0, UArg arg1)
     while (1) {
         if (programState == READING_MPU_DATA) {
 
-            //System_printf("In state: MpuSensorTask\n");
+            ////System_printf("In state: MpuSensorTask\n");
             //System_flush();
 
             i2cMPU = I2C_open(Board_I2C0, &i2cMPUParams);
@@ -399,14 +400,14 @@ Void gestureAnalysisTask_Fxn(UArg arg0, UArg arg1)
     while (1) {
         if ( programState == ANALYSING_DATA ) {
 
-            //System_printf("In state: gestureAnalysis\n");
+            ////System_printf("In state: gestureAnalysis\n");
             //System_flush();
 
             //analyseData(MPU_data, variance, mean, max, min);
             //printMpuData(MPU_data, 1);
 
             if (isPetting(MPU_data, MPU_DATA_SPAN)) {
-                System_printf("Petting detected!\n");
+                //System_printf("Petting detected!\n");
                 System_flush();
                 currentGesture = PETTING;
 
@@ -437,7 +438,7 @@ Void signalTask_Fxn(UArg arg0, UArg arg1)
     while (1) {
         if (programState == SIGNALLING_TO_USER) { // Signal about gesture
 
-            System_printf("Signaling to user with buzzer!\n");
+            //System_printf("Signaling to user with buzzer!\n");
             System_flush();
             playSong(buzzerHandle, gesture_detected_signal);
 
@@ -459,12 +460,12 @@ Void signalTask_Fxn(UArg arg0, UArg arg1)
 
             } else if (currentMessage == DEACTIVATED_SM) {
                 playSong(buzzerHandle, deactivate_signal);
-                System_printf("SM Deactivated\n");
+                //System_printf("SM Deactivated\n");
                 System_flush();
 
             } else if (currentMessage == ACTIVATED_SM) {
                 playSong(buzzerHandle, activate_signal);
-                System_printf("SM Activated\n");
+                //System_printf("SM Activated\n");
                 System_flush();
 
             }
@@ -527,6 +528,7 @@ Int main(void) {
     Board_initGeneral();
     Init6LoWPAN();
     Board_initI2C();
+    Board_initUART();
 
     /* Initializing Tasks */
     
