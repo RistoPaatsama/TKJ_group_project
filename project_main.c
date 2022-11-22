@@ -648,7 +648,7 @@ Int main(void) {
     signalTask_Handle = Task_create(signalTask_Fxn, &signalTask_Params, NULL);
     if (signalTask_Handle == NULL) {
         System_abort("signalTask create failed!");
-    }
+    }*/
 
     
     Task_Params_init(&playBackgroundSongTask_Params);
@@ -658,7 +658,7 @@ Int main(void) {
     playBackgroundSongTask_Handle = Task_create(playBackgroundSongTask_Fxn, &playBackgroundSongTask_Params, NULL);
     if (playBackgroundSongTask_Handle == NULL) {
         System_abort("playBackgroundSongTask create failed!");
-    }*/
+    }
 
 
     /* Power pin for MPU */
