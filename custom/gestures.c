@@ -9,7 +9,7 @@ int isPetting(float data[][7], int span)
     enum index { ax=1, ay, az, gx, gy, gz };
 
     float ay_threshold = 5;
-    float az_threshold = 9.8;
+    float az_threshold = 9;
     float gx_threshold = 5;
     int i = 0;
 
@@ -23,13 +23,11 @@ int isEating(float data[][7], int span)
 {
     enum index { ax=1, ay, az, gx, gy, gz };
 
-    float ay_threshold = 2.0;
-    float az_threshold = 8.0;
-    float gx_threshold_high = 85;
-    float gx_threshold_low = 0;
+    float dif_ay_az_threshold = 3.5;
+    float gx_threshold = 60;
     int i = 0;
 
-    if (fabs(data[i][ay] - data[i][az]) < 3.5 && data[i][gx] > 60) {
+    if (fabs(data[i][ay] - data[i][az]) < dif_ay_az_threshold && data[i][gx] > gx_threshold) {
         return 1;
     }
     return 0;
@@ -39,12 +37,11 @@ int isPlaying(float data[][7], int span)
 {
     enum index { ax=1, ay, az, gx, gy, gz };
 
-    float az_threshold_lower = 8;
-    float az_threshold_higher = 9;
-    float gx_threshold = 50;
+    float dif_ay_az_threshold = 4;
+    float ay_threshold = 2;
     int i = 0;
 
-    if (fabs(data[i][ay] - data[i][az]) < 4 && fabs(data[i][ay] < 2)) {
+    if (fabs(data[i][ay] - data[i][az]) < dif_ay_az_threshold && fabs(data[i][ay] < ay_threshold)) {
         return 1;
     }
     return 0;

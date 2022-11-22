@@ -223,10 +223,13 @@ static void uartWriteTask_Fxn(UArg arg0, UArg arg1)
 
             if (currentGesture == PETTING) {
                 sprintf(uartMsg, "%s,%s,ping", tag_id, msg[1]);
+                System_printf("%s\n", uartMsg);
             } else if(currentGesture == EATING){
                 sprintf(uartMsg, "%s,%s,ping", tag_id, msg[2]);
+                System_printf("%s\n", uartMsg);
             } else if(currentGesture == PLAYING){
                 sprintf(uartMsg, "%s,%s,ping", tag_id, msg[3]);
+                System_printf("%s\n", uartMsg);
             }
             //System_printf("Sending uart message: %s\n", uartMsg);
             System_flush();
