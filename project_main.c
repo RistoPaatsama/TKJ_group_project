@@ -39,7 +39,7 @@ Char uartTaskStack[STACKSIZE];
 Char dataAnalyzisTaskStack[STACKSIZE];
 
 /* State machine */
-enum state { WAITING=1, DATA_READY, SEND_DATA };
+enum state { AWAKE=1, DATA_READY, GEST_FOUND, GEST_NOT_FOUND, COMMAND_SENT, BEEP_HEARD,SIGNAL_PLAYED, QUIET, WAKING_UP, FALLING_ASLEEP,ASLEEP };
 enum state programState = WAITING;
 
 /* Enum for gesture */
@@ -103,7 +103,34 @@ void button0Fxn(PIN_Handle handle, PIN_Id pinId)
 }
 
 /* TASKS */
+static void Signal_sending(UArg arg0, UArg arg1){ //SLEEP in every if??
+    if (programState == COMMAND_SENT){
+        //play song 1
+        programState = SIGNAL_PLAYED;
+    }
+    if(programState == BEEP_HEARD){
+        //play song2
+        programState = SIGNAL_PLAYED;
+    }
+    if(programState == FALLING_ASLEEP){
+        //play song 3
+        //check if light under treshhold
+                programState = ASLEEP;
+    }
+    if(programState == WAKING_UP){
+        //play song 4
+        //check if light above treshhold
+                programState = AWAKE;
+    }
+    if (programState == ASLEEP) {
+        //check light level
+        //play song 5 OR WAKING_UP
+    }
+    Task_sleep(100*1000 / Clock_tickPeriod);
+}
 /* INTERRRRUPT HANDLER */
+
+
 static void uartFxn(UART_Handle handle, void *rxBuf, size_t len) {
 
    UART_read(handle, rxBuf, BUFFER_SIZE);
@@ -137,17 +164,30 @@ static void uartTask(UArg arg0, UArg arg1) {
    }
 
    // Nyt tarvitsee k‰ynnist‰‰ datan odotus
-   UART_read(uartHandle, uartBuffer, BUFFER_SIZE);
 
    while(1) {
 
+       if (programState == GEST_NOT_FOUND || programState == SIGNAL_PLAYED){
+
+
+       if(UART_read(uartHandle, uartBuffer, BUFFER_SIZE)){
+           //parse beep
+           programState = BEEP_HEARD;
+       }
+       else{
+           programState = QUIET;
+
+       }
+
+       }
        // sending message with UART through serial port
-       if (programState == DATA_READY && currentGesture != NONE) {
+       if (programState == GEST_FOUND && currentGesture != NONE) { //PROGRAM STATE GEST_FOUND
            sprintf(uartMsg, msg[currentGesture]);
            System_printf("uartMsg is: %s\n", uartMsg);
            System_flush();
            UART_write(uartHandle, uartMsg, sizeof(uartMsg));
            memset(uartMsg, 0, BUFFER_SIZE);
+           programState = COMMAND_SENT;
        }
 
        if (uartInterruptFlag == 1) {
@@ -262,7 +302,7 @@ Void dataCollectionTaskFxn(UArg arg0, UArg arg1)
             }
             firstTimeFlag = 0;
 
-            if (!dataToPrintFlag && programState == WAITING) // start data collecting after not collecting
+            if (!dataToPrintFlag && programState == AWAKE) // start data collecting after not collecting
             {
                 dataToPrintFlag = 1;
                 setZeroMpuData(MPU_data, MPU_DATA_SPAN);
@@ -281,7 +321,7 @@ Void dataCollectionTaskFxn(UArg arg0, UArg arg1)
             addMpuData(MPU_data, MPU_DATA_SPAN, time, ax, ay, az, gx, gy, gz);
             // programState = DATA_READY;
 
-        } else { // not collecting data
+        } else { // not collecting data // NEEDS TO BE ON ITS OWN TASK
             if (dataToPrintFlag)
             {
                 dataToPrintFlag = 0;
@@ -289,7 +329,7 @@ Void dataCollectionTaskFxn(UArg arg0, UArg arg1)
                 System_flush();
                 //printMpuData(MPU_data, MPU_DATA_SPAN);
                 programState = DATA_READY;
-                currentGesture = PETTING;
+                currentGesture = NONE;
             }
             if (!setupNeededFlag) setupNeededFlag = 1;
         }
@@ -313,11 +353,11 @@ void dataAnalyzisTask(UArg arg0, UArg arg1)
             if(isPetting(ay, ax, az, MPU_DATA_SPAN)) {
                 System_printf("FOUND GESTURE PETTING\n");
                 System_flush();
-                currentGesture = PETTING;
-                programState = SEND_DATA;
+                currentGesture = PETTING;//A FLAG FOR WHICH GESTURE
+                programState = GEST_FOUND;//GEST_FOUND
             } else {
                 currentGesture = NONE;
-                programState = WAITING;
+                programState = GEST_NOT_FOUND; //NO_GEST_FOUND
             }
         }
         Task_sleep(100*1000 / Clock_tickPeriod);
