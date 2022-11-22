@@ -195,6 +195,7 @@ static void uartWriteTask_Fxn(UArg arg0, UArg arg1)
         "ping",
         "PET:1",
         "EAT:1",
+        "EXERCISE:1",
         "ACTIVATE:1;1;1",
         "id:2231,MSG1:Health: ##--- 40%",
         "id:2231,MSG2:State 2 / Value 2.21",
@@ -220,7 +221,13 @@ static void uartWriteTask_Fxn(UArg arg0, UArg arg1)
 
         if (programState == SENDING_MESSAGE_UART) {
 
-            sprintf(uartMsg, "%s,%s,ping", tag_id, msg[3]);
+            if (currentGesture == PETTING) {
+                sprintf(uartMsg, "%s,%s,ping", tag_id, msg[1]);
+            } else if(currentGesture == EATING){
+                sprintf(uartMsg, "%s,%s,ping", tag_id, msg[2]);
+            } else if(currentGesture == PLAYING){
+                sprintf(uartMsg, "%s,%s,ping", tag_id, msg[3]);
+            }
             //System_printf("Sending uart message: %s\n", uartMsg);
             System_flush();
             UART_write(uartHandle, uartMsg, sizeof(uartMsg));
