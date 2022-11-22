@@ -39,14 +39,14 @@
 #define MESSAGE_COUNT           10
 
 /* Task stacks */
-#define STACKSIZE           500
-#define STACKSIZE_MEDIUM    1000
-#define STACKSIZE_LARGE     1500
+#define STACKSIZE           512
+#define STACKSIZE_MEDIUM    1024
+#define STACKSIZE_LARGE     2048
 Char mpuSensorTask_Stack[STACKSIZE_LARGE];
-Char lightSensorTask_Stack[STACKSIZE_MEDIUM];
+Char lightSensorTask_Stack[STACKSIZE_LARGE];
 Char gestureAnalysisTask_Stack[STACKSIZE];
 Char uartWriteTask_Stack[STACKSIZE_LARGE];
-Char uartReadTask_Stack[STACKSIZE];
+Char uartReadTask_Stack[STACKSIZE_LARGE];
 Char signalTask_Stack[STACKSIZE];
 Char playBackgroundSongTask_Stack[STACKSIZE_MEDIUM];
 
@@ -145,7 +145,7 @@ Void timeoutClock_Fxn(UArg arg0)
     Clock_stop(timeoutClock_Handle);
 }
 
-
+/*
 Void buttonRight_Fxn(PIN_Handle handle, PIN_Id pinId)
 {
     uint_t buttonValue = PIN_getInputValue( pinId );
@@ -178,6 +178,7 @@ Void buttonRight_Fxn(PIN_Handle handle, PIN_Id pinId)
     }
     
 }
+*/
 
 /* TASK FUNCTIONS */
 
@@ -197,6 +198,7 @@ static void uartWriteTask_Fxn(UArg arg0, UArg arg1)
         "ping",
         "PET:1",
         "EAT:1",
+        "EXERCISE:1",
         "ACTIVATE:1;1;1",
         "id:2231,MSG1:Health: ##--- 40%",
         "id:2231,MSG2:State 2 / Value 2.21",
@@ -206,7 +208,7 @@ static void uartWriteTask_Fxn(UArg arg0, UArg arg1)
     UART_Params_init(&uartParams);
     uartParams.baudRate      = 9600;
     uartParams.readMode      = UART_MODE_CALLBACK; // Keskeytyspohjainen vastaanotto
-    uartParams.readCallback  = &uartFxn; // K√§sittelij√§funktio
+    uartParams.readCallback  = &uartFxn; // K‰sittelij‰funktio
     uartParams.readDataMode  = UART_DATA_TEXT;
     uartParams.writeDataMode = UART_DATA_TEXT;
 
@@ -222,8 +224,17 @@ static void uartWriteTask_Fxn(UArg arg0, UArg arg1)
 
         if (programState == SENDING_MESSAGE_UART) {
 
-            sprintf(uartMsg, "%s,%s,ping", tag_id, msg[3]);
-            System_printf("Sending uart message: %s\n", uartMsg);
+            if (currentGesture == PETTING) {
+                sprintf(uartMsg, "%s,%s,ping", tag_id, msg[1]);
+                System_printf("%s\n", uartMsg);
+            } else if(currentGesture == EATING){
+                sprintf(uartMsg, "%s,%s,ping", tag_id, msg[2]);
+                System_printf("%s\n", uartMsg);
+            } else if(currentGesture == PLAYING){
+                sprintf(uartMsg, "%s,%s,ping", tag_id, msg[3]);
+                System_printf("%s\n", uartMsg);
+            }
+            //System_printf("Sending uart message: %s\n", uartMsg);
             System_flush();
             UART_write(uartHandle, uartMsg, sizeof(uartMsg));
             Clock_start(timeoutClock_Handle); // timeout clock for checking pong
@@ -347,7 +358,7 @@ Void lightSensorTask_Fxn(UArg arg0, UArg arg1)
     I2C_close(i2c);
 
     while (1) {
-        if (programState == DETECTING_LIGHT_LEVEL || programState == PLAYING_BACKGROUND_MUSIC) {
+        if (programState == DETECTING_LIGHT_LEVEL || programState == PLAYING_BACKGROUND_MUSIC || programState == READING_MPU_DATA) {
 
             
             i2c = I2C_open(Board_I2C_TMP, &i2cParams);
@@ -365,15 +376,13 @@ Void lightSensorTask_Fxn(UArg arg0, UArg arg1)
             System_printf(printBuffer);
             System_flush();
 
-            // if SM not deactivated
             if (programState != IDLE_STATE) {
                 if ( lux < Sleep_Light_Threshold ) {
-                    //System_printf("Dark enough to sleep\n");
-                    //System_flush();
+
                     programState = PLAYING_BACKGROUND_MUSIC;
                 
                 } else {
-                    programState = DETECTING_LIGHT_LEVEL;
+                    programState = READING_MPU_DATA;
                 }
             }
         }
@@ -452,22 +461,22 @@ Void mpuSensorTask_Fxn(UArg arg0, UArg arg1)
  */
 Void gestureAnalysisTask_Fxn(UArg arg0, UArg arg1)
 {
-    //float variance[7], mean[7], max[7], min[7];
 
     while (1) {
         if ( programState == ANALYSING_DATA ) {
-
-            //System_printf("In state: gestureAnalysis\n");
-            //System_flush();
-
-            //analyseData(MPU_data, variance, mean, max, min);
-            //printMpuData(MPU_data, 1);
 
             if (isPetting(MPU_data, MPU_DATA_SPAN)) {
                 System_printf("Petting detected!\n");
                 System_flush();
                 currentGesture = PETTING;
-
+            } else if (isEating(MPU_data, MPU_DATA_SPAN)) {
+                System_printf("Eating detected!\n");
+                System_flush();
+                currentGesture = EATING;
+            } else if (isPlaying(MPU_data, MPU_DATA_SPAN)) {
+                System_printf("Playing detected!\n");
+                System_flush();
+                currentGesture = PLAYING;
             } else {
                 currentGesture = NO_GESTURE;
             }
@@ -494,9 +503,6 @@ Void signalTask_Fxn(UArg arg0, UArg arg1)
 
     while (1) {
         if (programState == SIGNALLING_TO_USER) { // Signal about gesture
-
-            System_printf("Signaling to user with buzzer!\n");
-            System_flush();
             playSong(buzzerHandle, gesture_detected_signal);
 
             if (programState != IDLE_STATE) programState = LISTENING_UART;
@@ -506,8 +512,8 @@ Void signalTask_Fxn(UArg arg0, UArg arg1)
             if (currentMessage == LOW_HEALTH) {
                 playSong(buzzerHandle, low_health_signal);
 
-            } else if (currentMessage == NO_PONG_RECIEVED) {
-                playSong(buzzerHandle, message_not_recieved_signal);
+            /*} else if (currentMessage == NO_PONG_RECIEVED) {
+                playSong(buzzerHandle, message_not_recieved_signal);*/
             
             } else if (currentMessage == DEATH) {
                 playSong(buzzerHandle, requiem);
@@ -544,9 +550,6 @@ Void playBackgroundSongTask_Fxn(UArg arg0, UArg arg1)
 
     while (1) {
         if (programState == PLAYING_BACKGROUND_MUSIC) {
-
-            System_printf("STARTING: LULLABY\n");
-            System_flush();
 
             // execute state function
             playSongInterruptible(buzzerHandle, lullaby, &programState, PLAYING_BACKGROUND_MUSIC);
@@ -604,7 +607,7 @@ Int main(void) {
     }
     
     Task_Params_init(&lightSensorTask_Params);
-    lightSensorTask_Params.stackSize = STACKSIZE_MEDIUM;
+    lightSensorTask_Params.stackSize = STACKSIZE_LARGE;
     lightSensorTask_Params.stack = &lightSensorTask_Stack;
     lightSensorTask_Params.priority=2;
     lightSensorTask_Handle = Task_create(lightSensorTask_Fxn, &lightSensorTask_Params, NULL);
@@ -612,7 +615,6 @@ Int main(void) {
         System_abort("lightSensorTask create failed!");
     }
     //MPU_setup_complete = 1;
-/*
     Task_Params_init(&gestureAnalysisTask_Params);
     gestureAnalysisTask_Params.stackSize = STACKSIZE;
     gestureAnalysisTask_Params.stack = &gestureAnalysisTask_Stack;
@@ -633,13 +635,14 @@ Int main(void) {
     }
 
     Task_Params_init(&uartReadTask_Params);
-    uartReadTask_Params.stackSize = STACKSIZE;
+    uartReadTask_Params.stackSize = STACKSIZE_LARGE;
     uartReadTask_Params.stack = &uartReadTask_Stack;
     uartReadTask_Params.priority=1;
     uartReadTask_Handle = Task_create(uartReadTask_Fxn, &uartReadTask_Params, NULL);
     if (uartReadTask_Handle == NULL) {
         System_abort("uartReadTask create failed!");
     }
+
 
     Task_Params_init(&signalTask_Params);
     signalTask_Params.stackSize = STACKSIZE;
@@ -648,7 +651,7 @@ Int main(void) {
     signalTask_Handle = Task_create(signalTask_Fxn, &signalTask_Params, NULL);
     if (signalTask_Handle == NULL) {
         System_abort("signalTask create failed!");
-    }*/
+    }
 
     
     Task_Params_init(&playBackgroundSongTask_Params);
@@ -674,6 +677,7 @@ Int main(void) {
     }
 
     /* Button */
+    /*
     buttonRight_Handle = PIN_open( &buttonRight_State, buttonRight_Config );
     if(!buttonRight_Handle) {
         System_abort("Error initializing button 0\n");
@@ -681,6 +685,7 @@ Int main(void) {
     if (PIN_registerIntCb( buttonRight_Handle, &buttonRight_Fxn ) != 0) {
         System_abort("Error registering button 0 callback function");
     }
+    */
 
     /* LEDs */
     ledRed_Handle = PIN_open(&ledRed_State, ledRed_Config);
