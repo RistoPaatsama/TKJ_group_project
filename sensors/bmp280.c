@@ -148,17 +148,26 @@ void bmp280_setup(I2C_Handle *i2c) {
 void bmp280_get_data(I2C_Handle *i2c, double *pressure, double *temperature) {
 
     // JTKJ: Find out the correct buffer sizes with this sensor?
-    // char txBuffer[ n ];
-    // char rxBuffer{ n ];
+    uint8_t txBuffer[1];
+    uint8_t rxBuffer[6];
 
     // JTKJ: Fill in the i2cMessage data structure with correct values
     //       as shown in the lecture material
     I2C_Transaction i2cMessage;
 
+    i2cMessage.slaveAddress = Board_BMP280_ADDR;
+    txBuffer[0] = BMP280_REG_PRES_MSB;      // Rekisterin osoite l‰hetyspuskuriin
+    i2cMessage.writeBuf = txBuffer; // L‰hetyspuskurin asetus
+    i2cMessage.writeCount = 1;      // L‰hetet‰‰n 1 tavu
+    i2cMessage.readBuf = rxBuffer;  // Vastaanottopuskurin asetus
+    i2cMessage.readCount = 6;       // Vastaanotetaan 6 tavua
+
     if (I2C_transfer(*i2c, &i2cMessage)) {
 
-        // JTKJ: Here the conversion from register value to unit values
-        //       Save the values to the function parameters pressure and temperature
+        uint32_t pressure = ((((uint32_t)rxBuffer[0] << 8) | rxBuffer[1]) << 4) | (rxBuffer[2] >> 4);
+        uint32_t temp = ((((uint32_t)rxBuffer[3] << 8) | rxBuffer[4]) << 4) | (rxBuffer[5] >> 4);
+        bmp280_temp_compensation(temp);
+        bmp280_convert_pres(pressure);
 
     } else {
 

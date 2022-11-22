@@ -23,6 +23,7 @@
 #include "wireless/comm_lib.h"
 #include "sensors/opt3001.h"
 #include "sensors/mpu9250.h"
+#include "sensors/bmp280.h"
 #include "custom/DataHandling.h"
 #include "custom/Utilities.h"
 #include "custom/Music.h"
@@ -43,7 +44,8 @@
 #define STACKSIZE_MEDIUM    1024
 #define STACKSIZE_LARGE     2048
 Char mpuSensorTask_Stack[STACKSIZE_LARGE];
-Char lightSensorTask_Stack[STACKSIZE_LARGE];
+Char lightSensorTask_Stack[STACKSIZE_MEDIUM];
+Char pressureSensorTask_Stack[STACKSIZE_LARGE];
 Char gestureAnalysisTask_Stack[STACKSIZE];
 Char uartWriteTask_Stack[STACKSIZE_LARGE];
 Char uartReadTask_Stack[STACKSIZE_LARGE];
@@ -115,6 +117,7 @@ enum message currentMessage = NO_MESSAGE;
 uint8_t uartInterruptFlag = 0;
 uint8_t pongRecievedFlag = 1;
 uint8_t lastCommWasBeepFlag = 1;    // tells the program if it sent a command or recieved a beep last
+uint8_t highPressureflag = 0;
 
 /* Global variables */
 uint8_t uartBuffer[BUFFER_SIZE];
@@ -126,6 +129,9 @@ int MPU_setup_complete = 0;
 /* DATA */
 float MPU_data[MPU_DATA_SPAN][7];
 float MPU_data_buffer[SLIDING_MEAN_WINDOW][7];
+
+double pressure;
+double temp_comp;
 
 
 /* INTERRUPT HANDLERS */
@@ -323,6 +329,57 @@ Void uartReadTask_Fxn(UArg arg0, UArg arg1)
 /* 
  * 
  */
+
+Void pressureSensorTask_Fxn(UArg arg0, UArg arg1)
+{
+
+    I2C_Handle      i2cBMP;
+    I2C_Params      i2cBMPparams;
+
+    while (MPU_setup_complete == 0){
+        SLEEP(100);
+    }
+
+    I2C_Params_init(&i2cBMPparams);
+    i2cBMPparams.bitRate = I2C_400kHz;
+
+    System_printf("BMP280: Opening I2C handle ...\n");
+    System_flush();
+
+    i2cBMP = I2C_open(Board_I2C_TMP, &i2cBMPparams);
+    if (i2cBMP == NULL) {
+        System_abort("Error Initializing I2C\n");
+    }
+
+    System_printf("BMP280: Setting up I2C ...\n");
+    System_flush();
+
+    SLEEP(100);
+    opt3001_setup(&i2cBMP);
+
+    System_printf("BMP280: Setup OK\n");
+    System_flush();
+
+    I2C_close(i2cBMP);
+
+    while (1) {
+        if (programState == READING_MPU_DATA) {
+
+            i2cBMP = I2C_open(Board_I2C_TMP, &i2cBMPparams);
+            if (i2cBMP == NULL) {
+                System_abort("Error Initializing I2C\n");
+            }
+            bmp280_get_data(&i2cBMP, &pressure, &temp_comp);
+            I2C_close(i2cBMP);
+
+            sprintf(printBuffer, "pressure: %.2lf\n, temperature compensation: %.2lf\n", pressure, temp_comp);
+            System_printf(printBuffer);
+            System_flush();
+        }
+        SLEEP(100);
+    }
+}
+
 Void lightSensorTask_Fxn(UArg arg0, UArg arg1)
 {
     double lux;
@@ -386,7 +443,7 @@ Void lightSensorTask_Fxn(UArg arg0, UArg arg1)
                 }
             }
         }
-        SLEEP(1000);
+        SLEEP(999);
     }
 }
 
@@ -574,6 +631,9 @@ Int main(void) {
     Task_Handle lightSensorTask_Handle;
     Task_Params lightSensorTask_Params;
 
+    Task_Handle pressureSensorTask_Handle;
+    Task_Params pressureSensorTask_Params;
+
     Task_Handle gestureAnalysisTask_Handle;
     Task_Params gestureAnalysisTask_Params;
 
@@ -606,14 +666,27 @@ Int main(void) {
         System_abort("mpuSensorTask create failed!");
     }
     
+
     Task_Params_init(&lightSensorTask_Params);
-    lightSensorTask_Params.stackSize = STACKSIZE_LARGE;
+    lightSensorTask_Params.stackSize = STACKSIZE_MEDIUM;
     lightSensorTask_Params.stack = &lightSensorTask_Stack;
     lightSensorTask_Params.priority=2;
     lightSensorTask_Handle = Task_create(lightSensorTask_Fxn, &lightSensorTask_Params, NULL);
     if (lightSensorTask_Handle == NULL) {
         System_abort("lightSensorTask create failed!");
     }
+
+    /*
+    Task_Params_init(&pressureSensorTask_Params);
+    lightSensorTask_Params.stackSize = STACKSIZE_LARGE;
+    lightSensorTask_Params.stack = &pressureSensorTask_Stack;
+    lightSensorTask_Params.priority=2;
+    pressureSensorTask_Handle = Task_create(pressureSensorTask_Fxn, &pressureSensorTask_Params, NULL);
+    if (pressureSensorTask_Handle == NULL) {
+        System_abort("pressureSensorTask create failed!");
+    }
+    */
+
     //MPU_setup_complete = 1;
     Task_Params_init(&gestureAnalysisTask_Params);
     gestureAnalysisTask_Params.stackSize = STACKSIZE;
