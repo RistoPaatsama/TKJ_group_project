@@ -38,7 +38,6 @@
 #define BUFFER_SIZE             80
 #define MESSAGE_COUNT           10
 
-<<<<<<< HEAD
 /* Task stacks */
 #define STACKSIZE           500
 #define STACKSIZE_MEDIUM    1000
@@ -50,11 +49,6 @@ Char uartWriteTask_Stack[STACKSIZE_LARGE];
 Char uartReadTask_Stack[STACKSIZE];
 Char signalTask_Stack[STACKSIZE];
 Char playBackgroundSongTask_Stack[STACKSIZE_MEDIUM];
-=======
-/* State machine */
-enum state { AWAKE=1, DATA_READY, GEST_FOUND, GEST_NOT_FOUND, COMMAND_SENT, BEEP_HEARD,SIGNAL_PLAYED, QUIET, WAKING_UP, FALLING_ASLEEP,ASLEEP };
-enum state programState = WAITING;
->>>>>>> bfc0101a224c64c44a4d761f75ad2961443a72c2
 
 /* PIN VARIABLES */
 // MPU
@@ -242,114 +236,11 @@ static void uartWriteTask_Fxn(UArg arg0, UArg arg1)
     }
 }
 
-<<<<<<< HEAD
 
 /* 
  * 
  */
 Void uartReadTask_Fxn(UArg arg0, UArg arg1)
-=======
-/* TASKS */
-static void Signal_sending(UArg arg0, UArg arg1){ //SLEEP in every if??
-    if (programState == COMMAND_SENT){
-        //play song 1
-        programState = SIGNAL_PLAYED;
-    }
-    if(programState == BEEP_HEARD){
-        //play song2
-        programState = SIGNAL_PLAYED;
-    }
-    if(programState == FALLING_ASLEEP){
-        //play song 3
-        //check if light under treshhold
-                programState = ASLEEP;
-    }
-    if(programState == WAKING_UP){
-        //play song 4
-        //check if light above treshhold
-                programState = AWAKE;
-    }
-    if (programState == ASLEEP) {
-        //check light level
-        //play song 5 OR WAKING_UP
-    }
-    Task_sleep(100*1000 / Clock_tickPeriod);
-}
-/* INTERRRRUPT HANDLER */
-
-
-static void uartFxn(UART_Handle handle, void *rxBuf, size_t len) {
-
-   UART_read(handle, rxBuf, BUFFER_SIZE);
-   uartInterruptFlag = 1;
-}
-
-static void uartTask(UArg arg0, UArg arg1) {
-
-   UART_Handle uartHandle;
-   UART_Params uartParams;
-
-   char rec_msg[255];
-   char uartMsg[BUFFER_SIZE];
-   char msg[MESSAGE_COUNT][BUFFER_SIZE] = {
-        "id:2231,ping",
-        "id:2231,PET:1",
-        "id:2231,EAT:1",
-   };
-
-   UART_Params_init(&uartParams);
-   uartParams.baudRate      = 9600;
-   uartParams.readMode      = UART_MODE_CALLBACK; // Keskeytyspohjainen vastaanotto
-   uartParams.readCallback  = &uartFxn; // Käsittelijäfunktio
-   uartParams.readDataMode  = UART_DATA_TEXT;
-   uartParams.writeDataMode = UART_DATA_TEXT;
-
-    // UART käyttöön ohjelmassa
-   uartHandle = UART_open(Board_UART, &uartParams);
-   if (uartHandle == NULL) {
-      System_abort("Error opening the UART");
-   }
-
-   // Nyt tarvitsee käynnistää datan odotus
-
-   while(1) {
-
-       if (programState == GEST_NOT_FOUND || programState == SIGNAL_PLAYED){
-
-
-       if(UART_read(uartHandle, uartBuffer, BUFFER_SIZE)){
-           //parse beep
-           programState = BEEP_HEARD;
-       }
-       else{
-           programState = QUIET;
-
-       }
-
-       }
-       // sending message with UART through serial port
-       if (programState == GEST_FOUND && currentGesture != NONE) { //PROGRAM STATE GEST_FOUND
-           sprintf(uartMsg, msg[currentGesture]);
-           System_printf("uartMsg is: %s\n", uartMsg);
-           System_flush();
-           UART_write(uartHandle, uartMsg, sizeof(uartMsg));
-           memset(uartMsg, 0, BUFFER_SIZE);
-           programState = COMMAND_SENT;
-       }
-
-       if (uartInterruptFlag == 1) {
-           sprintf(rec_msg, "Interrupt happened. Received message is: %s\n", uartBuffer);
-           System_printf("%s\n", rec_msg);
-           System_flush();
-           uartInterruptFlag = 0;
-       }
-       programState = WAITING;
-       Task_sleep(100*1000 / Clock_tickPeriod);
-   }
-}
-
-Void dataCollectionTaskFxn(UArg arg0, UArg arg1)
->>>>>>> bfc0101a224c64c44a4d761f75ad2961443a72c2
 {
     char uartMsgRec[80];
     char beep_msg[] = "2231,BEEP:";
@@ -532,73 +423,8 @@ Void mpuSensorTask_Fxn(UArg arg0, UArg arg1)
     while (1) {
         if (programState == READING_MPU_DATA) {
 
-<<<<<<< HEAD
             //System_printf("In state: MpuSensorTask\n");
             //System_flush();
-=======
-    // open other I2C channel and setup periferals
-    i2c = I2C_open(Board_I2C_TMP, &i2cParams);
-    if (i2c == NULL) {
-      System_abort("Error Initializing I2C\n");
-    }
-
-    Task_sleep(100000 / Clock_tickPeriod);
-    opt3001_setup(&i2c);
-    I2C_close(i2c);
-
-    while (1)
-    {
-        float time, ax, ay, az, gx, gy, gz;
-
-        /*sprintf(buffer, "time since program start in 1/10th seconds %.5f\n", GET_TIME_DS );
-        System_printf(buffer);
-        System_flush();*/
-
-        // Read light sensor data
-        /*i2c = I2C_open(Board_I2C_TMP, &i2cParams);
-        if (i2c == NULL) {
-            System_abort("Error Initializing I2C\n");
-        }
-        lux = opt3001_get_data(&i2c);
-        I2C_close(i2c);*/
-
-        //sprintf(buffer, "(in sensorTask) light intensity: %.4f lux\n", lux);
-
-        //System_printf(buffer);
-        //System_flush();
-
-        /* GET AND PRINT MPU DATA */
-
-        if (collectDataFlag)
-        {
-            if (setupNeededFlag && !firstTimeFlag) // setup again after button press
-            {
-                i2cMPU = I2C_open(Board_I2C0, &i2cMPUParams);
-                if (i2cMPU == NULL) {
-                  System_abort("Error Initializing I2C\n");
-                }
-
-                System_printf("MPU9250: Setup and calibration...\n");
-                System_flush();
-
-                mpu9250_setup(&i2cMPU);
-
-                System_printf("MPU9250: Setup and calibration OK\n");
-                System_flush();
-
-                I2C_close(i2cMPU);
-                setupNeededFlag = 0;
-            }
-            firstTimeFlag = 0;
-
-            if (!dataToPrintFlag && programState == AWAKE) // start data collecting after not collecting
-            {
-                dataToPrintFlag = 1;
-                setZeroMpuData(MPU_data, MPU_DATA_SPAN);
-                System_printf("\nStarting data collection\n");
-                System_flush();
-            }
->>>>>>> bfc0101a224c64c44a4d761f75ad2961443a72c2
 
             i2cMPU = I2C_open(Board_I2C0, &i2cMPUParams);
             if (i2cMPU == NULL) {
@@ -612,23 +438,9 @@ Void mpuSensorTask_Fxn(UArg arg0, UArg arg1)
             //getAverage(MPU_data_buffer, new_mean_data);
             //new_mean_data[0] = time;
 
-<<<<<<< HEAD
             addMpuData(MPU_data, MPU_DATA_SPAN, time, 10*ax, 10*ay, 10*az, gx, gy, gz);
 
             if (programState != IDLE_STATE) programState = ANALYSING_DATA;
-=======
-        } else { // not collecting data // NEEDS TO BE ON ITS OWN TASK
-            if (dataToPrintFlag)
-            {
-                dataToPrintFlag = 0;
-                System_printf("Data collection stopped\n");
-                System_flush();
-                //printMpuData(MPU_data, MPU_DATA_SPAN);
-                programState = DATA_READY;
-                currentGesture = NONE;
-            }
-            if (!setupNeededFlag) setupNeededFlag = 1;
->>>>>>> bfc0101a224c64c44a4d761f75ad2961443a72c2
         }
         SLEEP(100);
     }
@@ -654,7 +466,6 @@ Void gestureAnalysisTask_Fxn(UArg arg0, UArg arg1)
             if (isPetting(MPU_data, MPU_DATA_SPAN)) {
                 System_printf("Petting detected!\n");
                 System_flush();
-<<<<<<< HEAD
                 currentGesture = PETTING;
 
             } else {
@@ -667,13 +478,6 @@ Void gestureAnalysisTask_Fxn(UArg arg0, UArg arg1)
 
             } else {
                 if (programState != IDLE_STATE) programState = LISTENING_UART;
-=======
-                currentGesture = PETTING;//A FLAG FOR WHICH GESTURE
-                programState = GEST_FOUND;//GEST_FOUND
-            } else {
-                currentGesture = NONE;
-                programState = GEST_NOT_FOUND; //NO_GEST_FOUND
->>>>>>> bfc0101a224c64c44a4d761f75ad2961443a72c2
             }
         }
         SLEEP(100);
