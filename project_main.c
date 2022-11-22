@@ -846,7 +846,7 @@ Int main(void) {
         System_abort("signalTask create failed!");
     }
 
-    
+    */
     Task_Params_init(&playBackgroundSongTask_Params);
     playBackgroundSongTask_Params.stackSize = STACKSIZE_MEDIUM;
     playBackgroundSongTask_Params.stack = &playBackgroundSongTask_Stack;
@@ -854,7 +854,7 @@ Int main(void) {
     playBackgroundSongTask_Handle = Task_create(playBackgroundSongTask_Fxn, &playBackgroundSongTask_Params, NULL);
     if (playBackgroundSongTask_Handle == NULL) {
         System_abort("playBackgroundSongTask create failed!");
-    }*/
+    }
 
 
     /* Power pin for MPU */
