@@ -62,6 +62,52 @@ int playSong(PIN_Handle buzzerHandle, const uint16_t song[])
 }
 
 
+int playSongInterruptible(PIN_Handle buzzerHandle, const uint16_t song[], int *state, int playCondition)
+{
+    int songSize = song[0] & 0x00ff;
+    int songBPM = (song[0] & 0xff00) >> 8;
+    songBPM *= 4;
+
+    buzzerOpen(buzzerHandle);
+    setBMP(songBPM);
+
+    int j, i, oct, octHold=0;
+    float length, pause;
+
+    int slideFlag, i_next, oct_next;
+    float len_next, pause_next; // useless, just to pass into function
+
+    for (j = 1; j <= songSize; j++)
+    {
+        if (*state == playCondition) {
+            parseNoteBits(song[j], &i, &oct, &length, &pause, &slideFlag);
+
+            if ( (oct == 0) && (octHold != 0) ) oct = octHold; // hold prev oct so you don't need it for every note
+            else if (oct != -1)                 octHold = oct;
+
+            if (slideFlag == 0){
+                _playNote(i, oct, length, pause);
+
+            } else { // sliding note
+                parseNoteBits(song[j+1], &i_next, &oct_next, &len_next, &pause_next, &slideFlag);
+                _playSlideNote(i, i_next, oct, oct_next, length, pause);
+            }
+
+        } else {
+            break;
+        }
+    }
+    buzzerClose();
+    /*
+    while (*state == playCondition) {
+        System_printf("LULLABY PLAYING!!!\n");
+        System_flush();
+        Task_sleep(50 * 1000 / Clock_tickPeriod);
+    }*/
+    return 0;
+}
+
+
 // plays notes with automatic small pause at end
 void playNote(char *note, float length){
     playNoteSt(note, length, 0.05);

@@ -56,6 +56,7 @@ void extractNoteFromString(char *note, int *i, int *oct);
 
 /* Dealing with notes as bits, better for playing songs */
 int playSong(PIN_Handle buzzerHandle, const uint16_t song[]);
+int playSongInterruptible(PIN_Handle buzzerHandle, const uint16_t song[], int *state, int playCondition);
 void parseNoteBits(uint16_t bits, int *i, int *oct, float *length, float *pause, int *slideFlag);
 
 /* Helper functions */
