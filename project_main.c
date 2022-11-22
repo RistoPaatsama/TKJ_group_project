@@ -108,7 +108,6 @@ enum state { IDLE_STATE=0, READING_MPU_DATA, DETECTING_LIGHT_LEVEL, ANALYSING_DA
 enum state defaultStartState = READING_MPU_DATA; 
 enum state programState = READING_MPU_DATA;
 
-
 enum gesture { NO_GESTURE=0, PETTING, PLAYING, SLEEPING, EATING, WALKING };
 enum gesture currentGesture = NO_GESTURE;
 
@@ -130,6 +129,7 @@ float buttonRight_PressTime = 0.0;
 int MPU_setup_complete = 0;
 int lightSensor_lastCalled = 0;
 int lightSensor_timeout = 1000;
+int command_sendTime = 0;
 
 int mpu_pc = 0; // these are for observing the hz of the mpu function
 int mpu_lastPrinted = 0;
@@ -246,7 +246,7 @@ static void uartWriteTask_Fxn(UArg arg0, UArg arg1)
             UART_write(uartHandle, uartMsg, sizeof(uartMsg));
             Clock_start(timeoutClock_Handle); // timeout clock for checking pong
             pongRecievedFlag = 0;
-            lastCommWasBeepFlag = 0;
+            command_sendTime = CURRENT_TIME_MS;
 
             if (programState != IDLE_STATE) programState = SIGNALLING_TO_USER;
         }
@@ -288,7 +288,9 @@ Void uartReadTask_Fxn(UArg arg0, UArg arg1)
 
             if (stringContainsAt(uartMsgRec, beep_msg, 0)) { // BEEP RECIEVED
 
-                if ( lastCommWasBeepFlag == 1 &&
+                int lastComm_timeout = 500;
+
+                if ( ( (CURRENT_TIME_MS - command_sendTime) > lastComm_timeout ) &&
                     stringContainsAt(uartMsgRec, low_health_msg1, msg_start_index) ||
                     stringContainsAt(uartMsgRec, low_health_msg2, msg_start_index) ||
                     stringContainsAt(uartMsgRec, low_health_msg3, msg_start_index) )
@@ -296,10 +298,10 @@ Void uartReadTask_Fxn(UArg arg0, UArg arg1)
                     currentMessage = LOW_HEALTH;
                 }
 
-                else if ( lastCommWasBeepFlag == 0 &&
-                            stringContainsAt(uartMsgRec, too_full_msg1, msg_start_index) ||
-                            stringContainsAt(uartMsgRec, too_full_msg2, msg_start_index) ||
-                            stringContainsAt(uartMsgRec, too_full_msg3, msg_start_index) )
+                else if ( ( (CURRENT_TIME_MS - command_sendTime) < lastComm_timeout ) &&
+                    stringContainsAt(uartMsgRec, too_full_msg1, msg_start_index) ||
+                    stringContainsAt(uartMsgRec, too_full_msg2, msg_start_index) ||
+                    stringContainsAt(uartMsgRec, too_full_msg3, msg_start_index) )
                 {
                     currentMessage = TOO_FULL;
                 }
@@ -308,8 +310,6 @@ Void uartReadTask_Fxn(UArg arg0, UArg arg1)
                 {
                     currentMessage = DEATH;
                 }
-
-                lastCommWasBeepFlag = 1;
             
             } else if (stringContainsAt(uartMsgRec, pong_msg, 0)) { // PONG RECIEVED
 
@@ -528,12 +528,9 @@ Void gestureAnalysisTask_Fxn(UArg arg0, UArg arg1)
  */
 Void signalTask_Fxn(UArg arg0, UArg arg1)
 {
-    // initialization
 
     while (1) {
-        //System_printf("SIGNALL WHILE\n");
-        //System_flush();
-        if (programState == SIGNALLING_TO_USER || currentMessage != NO_MESSAGE) { // Signal about gesture
+        if (programState == SIGNALLING_TO_USER || (currentMessage != NO_MESSAGE) ) { 
 
             if (programState == SIGNALLING_TO_USER) {
                 System_printf("Signaling to user with buzzer!\n");
@@ -541,28 +538,29 @@ Void signalTask_Fxn(UArg arg0, UArg arg1)
                 playSong(buzzerHandle, gesture_detected_signal);
             }
 
-            if (currentMessage == LOW_HEALTH) {
-                playSong(buzzerHandle, low_health_signal);
-
-            } else if (currentMessage == NO_PONG_RECIEVED) {
-                playSong(buzzerHandle, message_not_recieved_signal);
-            
-            } else if (currentMessage == DEATH) {
-                playSong(buzzerHandle, requiem);
-            
-            } else if (currentMessage == TOO_FULL) {
-                playSong(buzzerHandle, too_full_signal);
-
-            } else if (currentMessage == DEACTIVATED_SM) {
+            if (currentMessage == DEACTIVATED_SM) {
                 playSong(buzzerHandle, deactivate_signal);
                 System_printf("SM Deactivated\n");
                 System_flush();
-
             } else if (currentMessage == ACTIVATED_SM) {
                 playSong(buzzerHandle, activate_signal);
                 System_printf("SM Activated\n");
                 System_flush();
+            }
+            
+            if (programState != IDLE_STATE) { // prevent signalling when SM deactivated
+                if (currentMessage == LOW_HEALTH) {
+                    playSong(buzzerHandle, low_health_signal);
 
+                } else if (currentMessage == NO_PONG_RECIEVED) {
+                    playSong(buzzerHandle, message_not_recieved_signal);
+                
+                } else if (currentMessage == DEATH) {
+                    playSong(buzzerHandle, requiem);
+                
+                } else if (currentMessage == TOO_FULL) {
+                    playSong(buzzerHandle, too_full_signal);
+                }
             }
             currentMessage = NO_MESSAGE;
 
