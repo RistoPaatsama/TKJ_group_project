@@ -42,7 +42,7 @@
 #define STACKSIZE_MPU_SENSOR_TASK       1500
 #define STACKSIZE_LIGHT_SENSOR_TASK     1025
 #define STACKSIZE_GESTURE_SENSOR_TASK   512
-#define STACKSIZE_UART_WRITE_TASK       1500
+#define STACKSIZE_UART_WRITE_TASK       2000
 #define STACKSIZE_UART_READ_TASK        512
 #define STACKSIZE_SIGNAL_TASK           512
 #define STACKSIZE_PLAY_BG_SONG_TASK     1024
@@ -131,7 +131,8 @@ int MPU_setup_complete = 0;
 int lightSensor_lastCalled = 0;
 int lightSensor_timeout = 1000;
 
-int mpu_pc = 0;
+int mpu_pc = 0; // these are for observing the hz of the mpu function
+int mpu_lastPrinted = 0;
 
 /* DATA */
 float MPU_data[MPU_DATA_SPAN][7];
@@ -274,55 +275,50 @@ Void uartReadTask_Fxn(UArg arg0, UArg arg1)
     int msg_start_index = 10;
 
     while (1) {
-        if (true) // 
+
+        if (uartInterruptFlag == 1)
         {
+            uartInterruptFlag = 0;
 
-            if (uartInterruptFlag == 1)
-            {
-                uartInterruptFlag = 0;
+            strcpy(uartMsgRec, uartBuffer);
+            memset(uartBuffer, 0, BUFFER_SIZE);
 
-                strcpy(uartMsgRec, uartBuffer);
-                memset(uartBuffer, 0, BUFFER_SIZE);
+            //System_printf("Revieced UART message: %s\n", uartMsgRec);
+            System_flush();
 
-                //System_printf("Revieced UART message: %s\n", uartMsgRec);
-                System_flush();
+            if (stringContainsAt(uartMsgRec, beep_msg, 0)) { // BEEP RECIEVED
 
-                if (stringContainsAt(uartMsgRec, beep_msg, 0)) { // BEEP RECIEVED
+                if ( lastCommWasBeepFlag == 1 &&
+                    stringContainsAt(uartMsgRec, low_health_msg1, msg_start_index) ||
+                    stringContainsAt(uartMsgRec, low_health_msg2, msg_start_index) ||
+                    stringContainsAt(uartMsgRec, low_health_msg3, msg_start_index) )
+                {
+                    currentMessage = LOW_HEALTH;
+                }
 
-                    if ( lastCommWasBeepFlag == 1 &&
-                        stringContainsAt(uartMsgRec, low_health_msg1, msg_start_index) ||
-                        stringContainsAt(uartMsgRec, low_health_msg2, msg_start_index) ||
-                        stringContainsAt(uartMsgRec, low_health_msg3, msg_start_index) )
-                    {
-                        currentMessage = LOW_HEALTH;
-                    }
+                else if ( lastCommWasBeepFlag == 0 &&
+                            stringContainsAt(uartMsgRec, too_full_msg1, msg_start_index) ||
+                            stringContainsAt(uartMsgRec, too_full_msg2, msg_start_index) ||
+                            stringContainsAt(uartMsgRec, too_full_msg3, msg_start_index) )
+                {
+                    currentMessage = TOO_FULL;
+                }
 
-                    else if ( lastCommWasBeepFlag == 0 &&
-                                stringContainsAt(uartMsgRec, too_full_msg1, msg_start_index) ||
-                                stringContainsAt(uartMsgRec, too_full_msg2, msg_start_index) ||
-                                stringContainsAt(uartMsgRec, too_full_msg3, msg_start_index) )
-                    {
-                        currentMessage = TOO_FULL;
-                    }
+                else if (stringContainsAt(uartMsgRec, death_msg, msg_start_index))
+                {
+                    currentMessage = DEATH;
+                }
 
-                    else if (stringContainsAt(uartMsgRec, death_msg, msg_start_index))
-                    {
-                        currentMessage = DEATH;
-                    }
+                lastCommWasBeepFlag = 1;
+            
+            } else if (stringContainsAt(uartMsgRec, pong_msg, 0)) { // PONG RECIEVED
 
-                    lastCommWasBeepFlag = 1;
-                
-                } else if (stringContainsAt(uartMsgRec, pong_msg, 0)) { // PONG RECIEVED
-
-                    if (pongRecievedFlag == 0) {
-                        pongRecievedFlag = 1;
-                    }
+                if (pongRecievedFlag == 0) {
+                    pongRecievedFlag = 1;
                 }
             }
-            //if (programState != IDLE_STATE) programState = DETECTING_LIGHT_LEVEL;
         }
-        //SLEEP(100);
-    }
+    } // END OF WHILE LOOP
 }
 
 
@@ -383,18 +379,16 @@ Void lightSensorTask_Fxn(UArg arg0, UArg arg1)
                 }
                 I2C_close(i2c);
 
-                sprintf(printBuffer, "Light level: %.2f\n", lux);
-                System_printf(printBuffer);
-                System_flush();
+                //sprintf(printBuffer, "Light level: %.2f\n", lux);
+                //System_printf(printBuffer);
+                //System_flush();
 
                 lightSensor_lastCalled = CURRENT_TIME_MS;
             }
 
-            // if SM not deactivated
-            if (programState != IDLE_STATE) {
+            if (programState != IDLE_STATE)
+            {
                 if ( lux < Sleep_Light_Threshold ) {
-                    //System_printf("Dark enough to sleep\n");
-                    //System_flush();
                     programState = PLAYING_BACKGROUND_MUSIC;
                 
                 } else {
@@ -448,9 +442,6 @@ Void mpuSensorTask_Fxn(UArg arg0, UArg arg1)
     while (1) {
         if (programState == READING_MPU_DATA) {
 
-            ////System_printf("In state: MpuSensorTask\n");
-            //System_flush();
-
             i2cMPU = I2C_open(Board_I2C0, &i2cMPUParams);
             if (i2cMPU == NULL) {
                 System_abort("Error Initializing I2C\n");
@@ -467,9 +458,14 @@ Void mpuSensorTask_Fxn(UArg arg0, UArg arg1)
 
             if (programState != IDLE_STATE) programState = ANALYSING_DATA;
 
+            // For seeing MPU call freq
             mpu_pc++;
-            if (mpu_pc >= 9){
-                System_printf("MPU called 10 times!\n");
+            if (mpu_pc >= 50){
+                float freq = (float)mpu_pc * 1000 / (CURRENT_TIME_MS - mpu_lastPrinted);
+                mpu_lastPrinted = CURRENT_TIME_MS;
+
+                sprintf(printBuffer, "MPU freq: %.1f Hz\n", freq);
+                System_printf(printBuffer);
                 System_flush();
                 mpu_pc = 0;
             }
@@ -512,11 +508,14 @@ Void gestureAnalysisTask_Fxn(UArg arg0, UArg arg1)
             }
 
             // change state
-            if (currentGesture != NO_GESTURE) {
-                if (programState != IDLE_STATE) programState = SENDING_MESSAGE_UART;
+            if (programState != IDLE_STATE)
+            {
+                if (currentGesture == NO_GESTURE) {
+                    programState = DETECTING_LIGHT_LEVEL;
 
-            } else {
-                if (programState != IDLE_STATE) programState = DETECTING_LIGHT_LEVEL;
+                } else {
+                    programState = SENDING_MESSAGE_UART;
+                }
             }
         }
         SLEEP(100);
@@ -532,23 +531,21 @@ Void signalTask_Fxn(UArg arg0, UArg arg1)
     // initialization
 
     while (1) {
-        System_printf("SIGNALL WHILE\n");
-        System_flush();
-        if (programState == SIGNALLING_TO_USER) { // Signal about gesture
+        //System_printf("SIGNALL WHILE\n");
+        //System_flush();
+        if (programState == SIGNALLING_TO_USER || currentMessage != NO_MESSAGE) { // Signal about gesture
 
-            System_printf("Signaling to user with buzzer!\n");
-            System_flush();
-            playSong(buzzerHandle, gesture_detected_signal);
-
-            if (programState != IDLE_STATE) programState = DETECTING_LIGHT_LEVEL;
-
-        } else if (currentMessage != NO_MESSAGE) { // Signal about BEEP message and activation of SM  
+            if (programState == SIGNALLING_TO_USER) {
+                System_printf("Signaling to user with buzzer!\n");
+                System_flush();
+                playSong(buzzerHandle, gesture_detected_signal);
+            }
 
             if (currentMessage == LOW_HEALTH) {
                 playSong(buzzerHandle, low_health_signal);
 
             } else if (currentMessage == NO_PONG_RECIEVED) {
-                //playSong(buzzerHandle, message_not_recieved_signal);
+                playSong(buzzerHandle, message_not_recieved_signal);
             
             } else if (currentMessage == DEATH) {
                 playSong(buzzerHandle, requiem);
@@ -558,17 +555,17 @@ Void signalTask_Fxn(UArg arg0, UArg arg1)
 
             } else if (currentMessage == DEACTIVATED_SM) {
                 playSong(buzzerHandle, deactivate_signal);
-                //System_printf("SM Deactivated\n");
+                System_printf("SM Deactivated\n");
                 System_flush();
 
             } else if (currentMessage == ACTIVATED_SM) {
                 playSong(buzzerHandle, activate_signal);
-                //System_printf("SM Activated\n");
+                System_printf("SM Activated\n");
                 System_flush();
 
             }
-
             currentMessage = NO_MESSAGE;
+
             if (programState != IDLE_STATE) programState = DETECTING_LIGHT_LEVEL;
         }
         SLEEP(100);
@@ -586,7 +583,7 @@ Void playBackgroundSongTask_Fxn(UArg arg0, UArg arg1)
     while (1) {
         if (programState == PLAYING_BACKGROUND_MUSIC) {
 
-            System_printf("STARTING: LULLABY\n");
+            System_printf("Playing lullaby ... zzzz\n");
             System_flush();
 
             // execute state function

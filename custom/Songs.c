@@ -48,7 +48,7 @@ const uint16_t deactivate_signal[] = {
 
 const uint16_t requiem[] = {
                             (140 / 4) << 8 | 11,
-                            NOTE_C  | OCT_5 | HALF_NOTE                 | 1,
+                            NOTE_C  | OCT_6 | HALF_NOTE                 | 1,
                             NOTE_C          | QUARTER_NOTE | DOT_NOTE   | 1,
                             NOTE_C          | EIGHTHS_NOTE              | 1,
                             NOTE_C          | HALF_NOTE                 | 1,
@@ -57,8 +57,8 @@ const uint16_t requiem[] = {
                             NOTE_D          | QUARTER_NOTE | DOT_NOTE   | 1,
                             NOTE_C          | EIGHTHS_NOTE              | 1,
                             NOTE_C          | QUARTER_NOTE | DOT_NOTE   | 1,
-                            NOTE_B  | OCT_4 | EIGHTHS_NOTE              | 1,
-                            NOTE_C  | OCT_5 | WHOLE_NOTE                | 4
+                            NOTE_B  | OCT_5 | EIGHTHS_NOTE              | 1,
+                            NOTE_C  | OCT_6 | WHOLE_NOTE                | 4
 };
 
 
