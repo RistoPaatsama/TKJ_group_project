@@ -71,6 +71,11 @@ int playSongInterruptible(PIN_Handle buzzerHandle, const uint16_t song[], int *s
     buzzerOpen(buzzerHandle);
     setBMP(songBPM);
 
+    char merkkijono[64];
+    sprintf(merkkijono, "(in playSongInt) state: %d and condition: %d\n", *state, playCondition);
+    System_printf(merkkijono);
+    System_flush();
+
     int j, i, oct, octHold=0;
     float length, pause;
 

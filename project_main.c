@@ -31,7 +31,7 @@
 
 /* Marcos */
 #define SLEEP(ms)               Task_sleep((ms)*1000 / Clock_tickPeriod)
-#define GET_TIME_DS             (Double)Clock_getTicks() * (Double)Clock_tickPeriod / 100000
+#define CURRENT_TIME_MS         (int)((Double)Clock_getTicks() * (Double)Clock_tickPeriod / 1000)
 
 #define MPU_DATA_SPAN           10
 #define SLIDING_MEAN_WINDOW     3
@@ -39,17 +39,21 @@
 #define MESSAGE_COUNT           10
 
 /* Task stacks */
-#define STACKSIZE           500
-#define STACKSIZE_MEDIUM    1000
-#define STACKSIZE_LARGE     1500
+#define STACKSIZE_MPU_SENSOR_TASK       1500
+#define STACKSIZE_LIGHT_SENSOR_TASK     1025
+#define STACKSIZE_GESTURE_SENSOR_TASK   512
+#define STACKSIZE_UART_WRITE_TASK       1500
+#define STACKSIZE_UART_READ_TASK        512
+#define STACKSIZE_SIGNAL_TASK           512
+#define STACKSIZE_PLAY_BG_SONG_TASK     1024
 
-Char mpuSensorTask_Stack[STACKSIZE_LARGE];
-Char lightSensorTask_Stack[STACKSIZE_MEDIUM];
-Char gestureAnalysisTask_Stack[STACKSIZE];
-Char uartWriteTask_Stack[STACKSIZE_LARGE];
-Char uartReadTask_Stack[STACKSIZE];
-Char signalTask_Stack[STACKSIZE];
-Char playBackgroundSongTask_Stack[STACKSIZE_MEDIUM];
+Char mpuSensorTask_Stack[ STACKSIZE_MPU_SENSOR_TASK ];
+Char lightSensorTask_Stack[ STACKSIZE_LIGHT_SENSOR_TASK ];
+Char gestureAnalysisTask_Stack[ STACKSIZE_GESTURE_SENSOR_TASK ];
+Char uartWriteTask_Stack[ STACKSIZE_UART_WRITE_TASK ];
+Char uartReadTask_Stack[ STACKSIZE_UART_READ_TASK ];
+Char signalTask_Stack[ STACKSIZE_SIGNAL_TASK ];
+Char playBackgroundSongTask_Stack[ STACKSIZE_PLAY_BG_SONG_TASK ];
 
 /* PIN VARIABLES */
 // MPU
@@ -99,9 +103,10 @@ static Clock_Params timeoutClock_Params;
 
 /* Enums for State and Gesture */
 enum state { IDLE_STATE=0, READING_MPU_DATA, DETECTING_LIGHT_LEVEL, ANALYSING_DATA, SENDING_MESSAGE_UART, SIGNALLING_TO_USER,
-            LISTENING_UART, BEEP_RECIEVED, PLAYING_BACKGROUND_MUSIC, NO_RESPONSE_RECIEVED };
+            BEEP_RECIEVED, PLAYING_BACKGROUND_MUSIC, NO_RESPONSE_RECIEVED };
+// for some reason defaultStartState needs to be declared before programState for playSongInterruptible() to work
+enum state defaultStartState = READING_MPU_DATA; 
 enum state programState = READING_MPU_DATA;
-enum state defaultStartState = DETECTING_LIGHT_LEVEL;
 
 
 enum gesture { NO_GESTURE=0, PETTING, PLAYING, SLEEPING, EATING, WALKING };
@@ -115,7 +120,7 @@ enum message currentMessage = NO_MESSAGE;
 /* Global flags */
 uint8_t uartInterruptFlag = 0;
 uint8_t pongRecievedFlag = 1;
-uint8_t lastCommWasBeepFlag = 1;    // tells the program if it sent a command or recieved a beep last
+uint8_t lastCommWasBeepFlag = 1; // tells the program if it sent a command or recieved a beep last
 
 /* Global variables */
 uint8_t uartBuffer[BUFFER_SIZE];
@@ -123,6 +128,10 @@ char printBuffer[127];
 int16_t commandSentTime = 0;
 float buttonRight_PressTime = 0.0;
 int MPU_setup_complete = 0;
+int lightSensor_lastCalled = 0;
+int lightSensor_timeout = 1000;
+
+int mpu_pc = 0;
 
 /* DATA */
 float MPU_data[MPU_DATA_SPAN][7];
@@ -157,7 +166,7 @@ Void buttonRight_Fxn(PIN_Handle handle, PIN_Id pinId)
 
     } else { // button pushed
 
-        if ( (GET_TIME_DS - buttonRight_PressTime) > 1 )
+        if ( (CURRENT_TIME_MS - buttonRight_PressTime) > 100 )
         {
 
             System_printf("SM activation toggled! State: %d\n", programState);
@@ -174,7 +183,7 @@ Void buttonRight_Fxn(PIN_Handle handle, PIN_Id pinId)
                 PIN_setOutputValue( ledRed_Handle, Board_LED1, 0 );
             }
 
-            buttonRight_PressTime = GET_TIME_DS;
+            buttonRight_PressTime = CURRENT_TIME_MS;
         }
     }
     
@@ -226,15 +235,12 @@ static void uartWriteTask_Fxn(UArg arg0, UArg arg1)
 
             if (currentGesture == PETTING) {
                 sprintf(uartMsg, "%s,%s,ping", tag_id, msg[1]);
-                System_printf("%s\n", uartMsg);
             } else if(currentGesture == EATING){
                 sprintf(uartMsg, "%s,%s,ping", tag_id, msg[2]);
-                System_printf("%s\n", uartMsg);
             } else if(currentGesture == PLAYING){
                 sprintf(uartMsg, "%s,%s,ping", tag_id, msg[3]);
-                System_printf("%s\n", uartMsg);
             }
-            //System_printf("Sending uart message: %s\n", uartMsg);
+            System_printf("Sending uart message: %s\n", uartMsg);
             System_flush();
             UART_write(uartHandle, uartMsg, sizeof(uartMsg));
             Clock_start(timeoutClock_Handle); // timeout clock for checking pong
@@ -268,7 +274,7 @@ Void uartReadTask_Fxn(UArg arg0, UArg arg1)
     int msg_start_index = 10;
 
     while (1) {
-        if (programState == LISTENING_UART) 
+        if (true) // 
         {
 
             if (uartInterruptFlag == 1)
@@ -313,7 +319,7 @@ Void uartReadTask_Fxn(UArg arg0, UArg arg1)
                     }
                 }
             }
-            if (programState != IDLE_STATE) programState = READING_MPU_DATA;
+            //if (programState != IDLE_STATE) programState = DETECTING_LIGHT_LEVEL;
         }
         //SLEEP(100);
     }
@@ -360,21 +366,29 @@ Void lightSensorTask_Fxn(UArg arg0, UArg arg1)
     while (1) {
         if (programState == DETECTING_LIGHT_LEVEL || programState == PLAYING_BACKGROUND_MUSIC) {
 
-            
-            i2c = I2C_open(Board_I2C_TMP, &i2cParams);
-            if (i2c == NULL) {
-                System_abort("Error Initializing I2C\n");
-            }
-            int i;
-            for (i = 0; i < 10; i++){
-                lux = opt3001_get_data(&i2c);
-                if (lux != -1) break;
-            }
-            I2C_close(i2c);
+            //sprintf(printBuffer, "timeout: %d last called: %d current time: %d\n", lightSensor_timeout, lightSensor_lastCalled, (int)CURRENT_TIME_MS);
+            //System_printf(printBuffer);
+            //System_flush();
 
-            sprintf(printBuffer, "Light level: %.2f\n", lux);
-            System_printf(printBuffer);
-            System_flush();
+            if ( (CURRENT_TIME_MS - lightSensor_lastCalled) > lightSensor_timeout ) // only actually sense light level every 1000 ms
+            {
+                i2c = I2C_open(Board_I2C_TMP, &i2cParams);
+                if (i2c == NULL) {
+                    System_abort("Error Initializing I2C\n");
+                }
+                int i;
+                for (i = 0; i < 10; i++){
+                    lux = opt3001_get_data(&i2c);
+                    if (lux != -1) break;
+                }
+                I2C_close(i2c);
+
+                sprintf(printBuffer, "Light level: %.2f\n", lux);
+                System_printf(printBuffer);
+                System_flush();
+
+                lightSensor_lastCalled = CURRENT_TIME_MS;
+            }
 
             // if SM not deactivated
             if (programState != IDLE_STATE) {
@@ -384,11 +398,11 @@ Void lightSensorTask_Fxn(UArg arg0, UArg arg1)
                     programState = PLAYING_BACKGROUND_MUSIC;
                 
                 } else {
-                    programState = DETECTING_LIGHT_LEVEL;
+                    programState = READING_MPU_DATA;
                 }
             }
         }
-        SLEEP(1000);
+        SLEEP(50);
     }
 }
 
@@ -442,7 +456,7 @@ Void mpuSensorTask_Fxn(UArg arg0, UArg arg1)
                 System_abort("Error Initializing I2C\n");
             }
             mpu9250_get_data(&i2cMPU, &ax, &ay, &az, &gx, &gy, &gz);
-            time = GET_TIME_DS;
+            time = CURRENT_TIME_MS;
             I2C_close(i2cMPU);
 
             //addData(MPU_data_buffer, SLIDING_MEAN_WINDOW, new_data);
@@ -452,6 +466,13 @@ Void mpuSensorTask_Fxn(UArg arg0, UArg arg1)
             addMpuData(MPU_data, MPU_DATA_SPAN, time, 10*ax, 10*ay, 10*az, gx, gy, gz);
 
             if (programState != IDLE_STATE) programState = ANALYSING_DATA;
+
+            mpu_pc++;
+            if (mpu_pc >= 9){
+                System_printf("MPU called 10 times!\n");
+                System_flush();
+                mpu_pc = 0;
+            }
         }
         SLEEP(100);
     }
@@ -495,7 +516,7 @@ Void gestureAnalysisTask_Fxn(UArg arg0, UArg arg1)
                 if (programState != IDLE_STATE) programState = SENDING_MESSAGE_UART;
 
             } else {
-                if (programState != IDLE_STATE) programState = LISTENING_UART;
+                if (programState != IDLE_STATE) programState = DETECTING_LIGHT_LEVEL;
             }
         }
         SLEEP(100);
@@ -511,13 +532,15 @@ Void signalTask_Fxn(UArg arg0, UArg arg1)
     // initialization
 
     while (1) {
+        System_printf("SIGNALL WHILE\n");
+        System_flush();
         if (programState == SIGNALLING_TO_USER) { // Signal about gesture
 
-            //System_printf("Signaling to user with buzzer!\n");
+            System_printf("Signaling to user with buzzer!\n");
             System_flush();
             playSong(buzzerHandle, gesture_detected_signal);
 
-            if (programState != IDLE_STATE) programState = LISTENING_UART;
+            if (programState != IDLE_STATE) programState = DETECTING_LIGHT_LEVEL;
 
         } else if (currentMessage != NO_MESSAGE) { // Signal about BEEP message and activation of SM  
 
@@ -546,7 +569,7 @@ Void signalTask_Fxn(UArg arg0, UArg arg1)
             }
 
             currentMessage = NO_MESSAGE;
-            if (programState != IDLE_STATE) programState = READING_MPU_DATA; //LISTENING_UART;
+            if (programState != IDLE_STATE) programState = DETECTING_LIGHT_LEVEL;
         }
         SLEEP(100);
     }
@@ -612,7 +635,7 @@ Int main(void) {
     /* Initializing Tasks */
     
     Task_Params_init(&mpuSensorTask_Params);
-    mpuSensorTask_Params.stackSize = STACKSIZE_LARGE;
+    mpuSensorTask_Params.stackSize = STACKSIZE_MPU_SENSOR_TASK;
     mpuSensorTask_Params.stack = &mpuSensorTask_Stack;
     mpuSensorTask_Params.priority=2;
     mpuSensorTask_Handle = Task_create(mpuSensorTask_Fxn, &mpuSensorTask_Params, NULL);
@@ -621,17 +644,16 @@ Int main(void) {
     }
     
     Task_Params_init(&lightSensorTask_Params);
-    lightSensorTask_Params.stackSize = STACKSIZE_MEDIUM;
+    lightSensorTask_Params.stackSize = STACKSIZE_LIGHT_SENSOR_TASK;
     lightSensorTask_Params.stack = &lightSensorTask_Stack;
     lightSensorTask_Params.priority=2;
     lightSensorTask_Handle = Task_create(lightSensorTask_Fxn, &lightSensorTask_Params, NULL);
     if (lightSensorTask_Handle == NULL) {
         System_abort("lightSensorTask create failed!");
     }
-    //MPU_setup_complete = 1;
-/*
+
     Task_Params_init(&gestureAnalysisTask_Params);
-    gestureAnalysisTask_Params.stackSize = STACKSIZE;
+    gestureAnalysisTask_Params.stackSize = STACKSIZE_GESTURE_SENSOR_TASK;
     gestureAnalysisTask_Params.stack = &gestureAnalysisTask_Stack;
     gestureAnalysisTask_Params.priority=2;
     gestureAnalysisTask_Handle = Task_create(gestureAnalysisTask_Fxn, &gestureAnalysisTask_Params, NULL);
@@ -640,15 +662,16 @@ Int main(void) {
     }
     
     Task_Params_init(&uartWriteTask_Params);
-    uartWriteTask_Params.stackSize = STACKSIZE_LARGE;
+    uartWriteTask_Params.stackSize = STACKSIZE_UART_WRITE_TASK;
     uartWriteTask_Params.stack = &uartWriteTask_Stack;
     uartWriteTask_Params.priority=2;
     uartWriteTask_Handle = Task_create(uartWriteTask_Fxn, &uartWriteTask_Params, NULL);
     if (uartWriteTask_Handle == NULL) {
         System_abort("uartWriteTask create failed!");
     }
+
     Task_Params_init(&uartReadTask_Params);
-    uartReadTask_Params.stackSize = STACKSIZE;
+    uartReadTask_Params.stackSize = STACKSIZE_UART_READ_TASK;
     uartReadTask_Params.stack = &uartReadTask_Stack;
     uartReadTask_Params.priority=1;
     uartReadTask_Handle = Task_create(uartReadTask_Fxn, &uartReadTask_Params, NULL);
@@ -656,17 +679,17 @@ Int main(void) {
         System_abort("uartReadTask create failed!");
     }
     Task_Params_init(&signalTask_Params);
-    signalTask_Params.stackSize = STACKSIZE;
+    signalTask_Params.stackSize = STACKSIZE_SIGNAL_TASK;
     signalTask_Params.stack = &signalTask_Stack;
     signalTask_Params.priority=2;
     signalTask_Handle = Task_create(signalTask_Fxn, &signalTask_Params, NULL);
     if (signalTask_Handle == NULL) {
         System_abort("signalTask create failed!");
-    }*/
+    }
 
     
     Task_Params_init(&playBackgroundSongTask_Params);
-    playBackgroundSongTask_Params.stackSize = STACKSIZE_MEDIUM;
+    playBackgroundSongTask_Params.stackSize = STACKSIZE_PLAY_BG_SONG_TASK;
     playBackgroundSongTask_Params.stack = &playBackgroundSongTask_Stack;
     playBackgroundSongTask_Params.priority=2;
     playBackgroundSongTask_Handle = Task_create(playBackgroundSongTask_Fxn, &playBackgroundSongTask_Params, NULL);
