@@ -87,6 +87,15 @@ PIN_Config buttonRight_Config[] = {
     PIN_TERMINATE
 };
 
+// Left button
+static PIN_Handle buttonLeft_Handle;
+static PIN_State buttonLeft_State;
+
+PIN_Config buttonLeft_Config[] = {
+    Board_BUTTON1  | PIN_INPUT_EN | PIN_PULLUP | PIN_IRQ_BOTHEDGES,
+    PIN_TERMINATE
+};
+
 // LED RED
 static PIN_Handle ledRed_Handle;
 static PIN_State ledRed_State;
@@ -111,15 +120,14 @@ enum state programState = READING_MPU_DATA;
 enum gesture { NO_GESTURE=0, PETTING, PLAYING, SLEEPING, EATING, WALKING };
 enum gesture currentGesture = NO_GESTURE;
 
-
-enum message { NO_MESSAGE=0, TOO_FULL, LOW_HEALTH, DEATH, NO_PONG_RECIEVED, DEACTIVATED_SM, ACTIVATED_SM };
+enum message { NO_MESSAGE=0, TOO_FULL, LOW_HEALTH, DEATH, NO_PONG_RECIEVED, DEACTIVATED_SM, ACTIVATED_SM, DATA_UPLOADED };
 enum message currentMessage = NO_MESSAGE;
-
 
 /* Global flags */
 uint8_t uartInterruptFlag = 0;
 uint8_t pongRecievedFlag = 1;
 uint8_t lastCommWasBeepFlag = 1; // tells the program if it sent a command or recieved a beep last
+uint8_t sendDataToBeVisualizedFlag = 0; 
 
 /* Global variables */
 uint8_t uartBuffer[BUFFER_SIZE];
@@ -147,7 +155,7 @@ static void uartFxn(UART_Handle handle, void *rxBuf, size_t len)
     UART_read(handle, rxBuf, BUFFER_SIZE);
 }
 
-
+// Timeout to check if pong recieved for testing UART. 
 Void timeoutClock_Fxn(UArg arg0)
 {
     if (pongRecievedFlag == 0) {
@@ -156,21 +164,19 @@ Void timeoutClock_Fxn(UArg arg0)
     Clock_stop(timeoutClock_Handle);
 }
 
-
+// Right button. Interrupt will trigger on both press and release. 
 Void buttonRight_Fxn(PIN_Handle handle, PIN_Id pinId)
 {
     uint_t buttonValue = PIN_getInputValue( pinId );
-
     if (buttonValue) { // button released
-        
-        // 
+        // Nothing
 
     } else { // button pushed
 
         if ( (CURRENT_TIME_MS - buttonRight_PressTime) > 100 )
         {
 
-            System_printf("SM activation toggled! State: %d\n", programState);
+            System_printf("SM activation toggled from state: %d\n", programState);
             System_flush();
 
             if (programState != IDLE_STATE) {
@@ -187,11 +193,28 @@ Void buttonRight_Fxn(PIN_Handle handle, PIN_Id pinId)
             buttonRight_PressTime = CURRENT_TIME_MS;
         }
     }
-    
 }
 
-/* TASK FUNCTIONS */
+// Left button. 
+Void buttonLeft_Fxn(PIN_Handle handle, PIN_Id pinId)
+{
+    uint_t buttonValue = PIN_getInputValue( pinId );
+    if (buttonValue) { // button released
+        // Nothing
 
+    } else { // button pushed
+        
+        if (CURRENT_TIME_MS > 2000) {
+            if (programState != IDLE_STATE) {
+                sendDataToBeVisualizedFlag = 1;
+            }
+        }
+        
+    }
+}
+
+
+/* TASK FUNCTIONS */
 
 /* 
  * 
@@ -214,6 +237,9 @@ static void uartWriteTask_Fxn(UArg arg0, UArg arg1)
         "id:2231,MSG2:State 2 / Value 2.21",
         "ENERGY:3"
     };
+
+    char session_start_msg[BUFFER_SIZE] = "session:start";
+    char session_end_msg[BUFFER_SIZE] = "session:end";
 
     UART_Params_init(&uartParams);
     uartParams.baudRate      = 9600;
@@ -249,6 +275,31 @@ static void uartWriteTask_Fxn(UArg arg0, UArg arg1)
             command_sendTime = CURRENT_TIME_MS;
 
             if (programState != IDLE_STATE) programState = SIGNALLING_TO_USER;
+        }
+
+        else if (sendDataToBeVisualizedFlag == 1) { // Send data to backend to be visualized
+
+            sprintf(uartMsg, "%s,%s", tag_id, session_start_msg);
+            UART_write(uartHandle, uartMsg, sizeof(uartMsg));
+            
+            System_printf("Session started ...\n");
+            System_flush();
+
+            int i;
+            for (i = 0; i < MPU_DATA_SPAN; i++){
+                sprintf(uartMsg,"%s,ax:%d,ay:%d,az:%d", tag_id, (int)(MPU_data[i][1]*100), (int)(MPU_data[i][2]*100), (int)(MPU_data[i][3]*100) ); // acc data
+                //sprintf(uartMsg,"%s,gx:%d,gy:%d,gz:%d", tag_id, (int)(MPU_data[i][4]*10), (int)(MPU_data[i][5]*10), (int)(MPU_data[i][6]*10) ); // gyro data (not visualizing well)
+                UART_write(uartHandle, uartMsg, sizeof(uartMsg));
+            }
+            
+            sprintf(uartMsg, "%s,%s", tag_id, session_end_msg);
+            UART_write(uartHandle, uartMsg, sizeof(uartMsg));
+
+            System_printf("... session ended\n");
+            System_flush();
+
+            currentMessage = DATA_UPLOADED;
+            sendDataToBeVisualizedFlag = 0;
         }
         SLEEP(100);
     }
@@ -290,19 +341,18 @@ Void uartReadTask_Fxn(UArg arg0, UArg arg1)
 
                 int lastComm_timeout = 500;
 
-                if ( ( (CURRENT_TIME_MS - command_sendTime) > lastComm_timeout ) &&
+                if ( ( (CURRENT_TIME_MS - command_sendTime) > lastComm_timeout ) && (
                     stringContainsAt(uartMsgRec, low_health_msg1, msg_start_index) ||
                     stringContainsAt(uartMsgRec, low_health_msg2, msg_start_index) ||
-                    stringContainsAt(uartMsgRec, low_health_msg3, msg_start_index) )
-                {
+                    stringContainsAt(uartMsgRec, low_health_msg3, msg_start_index)
+                    ) ) {
                     currentMessage = LOW_HEALTH;
                 }
-
-                else if ( ( (CURRENT_TIME_MS - command_sendTime) < lastComm_timeout ) &&
+                else if ( ( (CURRENT_TIME_MS - command_sendTime) < lastComm_timeout ) && (
                     stringContainsAt(uartMsgRec, too_full_msg1, msg_start_index) ||
                     stringContainsAt(uartMsgRec, too_full_msg2, msg_start_index) ||
-                    stringContainsAt(uartMsgRec, too_full_msg3, msg_start_index) )
-                {
+                    stringContainsAt(uartMsgRec, too_full_msg3, msg_start_index) 
+                    ) ) {
                     currentMessage = TOO_FULL;
                 }
 
@@ -510,11 +560,11 @@ Void gestureAnalysisTask_Fxn(UArg arg0, UArg arg1)
             // change state
             if (programState != IDLE_STATE)
             {
-                if (currentGesture == NO_GESTURE) {
-                    programState = DETECTING_LIGHT_LEVEL;
+                if (currentGesture != NO_GESTURE) {
+                    programState = SENDING_MESSAGE_UART;
 
                 } else {
-                    programState = SENDING_MESSAGE_UART;
+                    programState = DETECTING_LIGHT_LEVEL;
                 }
             }
         }
@@ -548,7 +598,7 @@ Void signalTask_Fxn(UArg arg0, UArg arg1)
                 System_flush();
             }
             
-            if (programState != IDLE_STATE) { // prevent signalling when SM deactivated
+            if ( (programState != IDLE_STATE) && (programState != PLAYING_BACKGROUND_MUSIC) ) { // prevent signalling when SM deactivated
                 if (currentMessage == LOW_HEALTH) {
                     playSong(buzzerHandle, low_health_signal);
 
@@ -560,7 +610,10 @@ Void signalTask_Fxn(UArg arg0, UArg arg1)
                 
                 } else if (currentMessage == TOO_FULL) {
                     playSong(buzzerHandle, too_full_signal);
-                }
+                
+                } else if (currentMessage == DATA_UPLOADED) {
+                    playSong(buzzerHandle, session_completed_signal);
+                } 
             }
             currentMessage = NO_MESSAGE;
 
@@ -711,6 +764,14 @@ Int main(void) {
         System_abort("Error initializing button 0\n");
     }
     if (PIN_registerIntCb( buttonRight_Handle, &buttonRight_Fxn ) != 0) {
+        System_abort("Error registering button 0 callback function");
+    }
+
+    buttonLeft_Handle = PIN_open( &buttonLeft_State, buttonLeft_Config );
+    if(!buttonLeft_Handle) {
+        System_abort("Error initializing button 0\n");
+    }
+    if (PIN_registerIntCb( buttonLeft_Handle, &buttonLeft_Fxn ) != 0) {
         System_abort("Error registering button 0 callback function");
     }
 

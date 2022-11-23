@@ -17,19 +17,21 @@ const uint16_t message_not_recieved_signal[] = {
 
 
 const uint16_t gesture_detected_signal[] = {
-                            (550 / 4) << 8 | 4,
+                            (550 / 4) << 8 | 5,
                             NOTE_C  | OCT_6     | QUARTER_NOTE,
                             NOTE_E              | QUARTER_NOTE,
                             NOTE_G              | QUARTER_NOTE,
-                            NOTE_C  | OCT_7     | QUARTER_NOTE  | DOT_NOTE
+                            NOTE_C  | OCT_7     | QUARTER_NOTE  | DOT_NOTE,
+                            REST                | QUARTER_NOTE
 };
 
 
 const uint16_t too_full_signal[] = {
-                            (500 / 4) << 8 | 3,
+                            (500 / 4) << 8 | 4,
                             NOTE_C  | OCT_7     | QUARTER_NOTE,
                             NOTE_E              | QUARTER_NOTE,
-                            NOTE_FS             | HALF_NOTE
+                            NOTE_FS             | HALF_NOTE,
+                            REST                | QUARTER_NOTE
 };
 
 
@@ -81,6 +83,30 @@ const uint16_t low_battery_signal[] = {
                                 NOTE_D          | EIGHTHS_NOTE,
                                 NOTE_CS         | EIGHTHS_NOTE,
                                 NOTE_C          | EIGHTHS_NOTE  | DOT_NOTE
+};
+
+
+const uint16_t session_completed_signal[] = {
+    (450 / 4) << 8 | 19 ,
+6 << 12 | OCT_7 | EIGHTHS_NOTE,
+1 << 12 | OCT_6 | EIGHTHS_NOTE,
+8 << 12 | OCT_6 | EIGHTHS_NOTE,
+10 << 12 | OCT_7 | EIGHTHS_NOTE,
+5 << 12 | OCT_7 | EIGHTHS_NOTE,
+0 << 12 | OCT_6 | EIGHTHS_NOTE,
+2 << 12 | OCT_7 | EIGHTHS_NOTE,
+9 << 12 | OCT_7 | EIGHTHS_NOTE,
+4 << 12 | OCT_7 | EIGHTHS_NOTE,
+6 << 12 | OCT_8 | EIGHTHS_NOTE,
+1 << 12 | OCT_7 | EIGHTHS_NOTE,
+8 << 12 | OCT_7 | EIGHTHS_NOTE,
+10 << 12 | OCT_8 | EIGHTHS_NOTE,
+5 << 12 | OCT_8 | EIGHTHS_NOTE,
+0 << 12 | OCT_7 | EIGHTHS_NOTE,
+2 << 12 | OCT_8 | EIGHTHS_NOTE,
+9 << 12 | OCT_8 | EIGHTHS_NOTE,
+4 << 12 | OCT_8 | EIGHTHS_NOTE,
+REST | HALF_NOTE
 };
 
 
