@@ -99,10 +99,10 @@ static Clock_Params timeoutClock_Params;
 
 
 /* Enums for State and Gesture */
-enum state { IDLE_STATE=0, READING_MPU_DATA, DETECTING_LIGHT_LEVEL, ANALYSING_DATA, SENDING_MESSAGE_UART, SIGNALLING_TO_USER,
-            LISTENING_UART, BEEP_RECIEVED, PLAYING_BACKGROUND_MUSIC, NO_RESPONSE_RECIEVED };
-enum state defaultStartState = DETECTING_LIGHT_LEVEL;
-enum state programState = DETECTING_LIGHT_LEVEL;
+enum state { IDLE_STATE=0, READING_MPU_DATA, DETECTING_LIGHT_LEVEL, ANALYSING_DATA, SENDING_MESSAGE_UART, SIGNALLING_TO0_USER,
+            LISTENING_UART, BEEP_RECIEVED, PLAYING_BACKGROUND_MUSIC, NO_RESPONSE_RECIEVED, READING_BMP_DATA };
+enum state defaultStartState = READING_BMP_DATA;
+enum state programState = READING_BMP_DATA;
 
 
 enum gesture { NO_GESTURE=0, PETTING, PLAYING, SLEEPING, EATING, WALKING };
@@ -214,7 +214,7 @@ static void uartWriteTask_Fxn(UArg arg0, UArg arg1)
     UART_Params_init(&uartParams);
     uartParams.baudRate      = 9600;
     uartParams.readMode      = UART_MODE_CALLBACK; // Keskeytyspohjainen vastaanotto
-    uartParams.readCallback  = &uartFxn; // Käsittelijäfunktio
+    uartParams.readCallback  = &uartFxn; // Kï¿½sittelijï¿½funktio
     uartParams.readDataMode  = UART_DATA_TEXT;
     uartParams.writeDataMode = UART_DATA_TEXT;
 
@@ -329,7 +329,6 @@ Void uartReadTask_Fxn(UArg arg0, UArg arg1)
 /* 
  * 
  */
-
 Void pressureSensorTask_Fxn(UArg arg0, UArg arg1)
 {
 
@@ -363,7 +362,7 @@ Void pressureSensorTask_Fxn(UArg arg0, UArg arg1)
     I2C_close(i2cBMP);
 
     while (1) {
-        if (programState == READING_MPU_DATA) {
+        if (programState == READING_BMP_DATA) {
 
             i2cBMP = I2C_open(Board_I2C_TMP, &i2cBMPparams);
             if (i2cBMP == NULL) {
