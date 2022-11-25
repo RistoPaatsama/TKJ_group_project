@@ -155,7 +155,7 @@ static void uartFxn(UART_Handle handle, void *rxBuf, size_t len)
     UART_read(handle, rxBuf, BUFFER_SIZE);
 }
 
-// Timeout to check if pong recieved for testing UART. 
+// Timeout to check if pong was recieved recieved. 
 Void timeoutClock_Fxn(UArg arg0)
 {
     if (pongRecievedFlag == 0) {
@@ -195,7 +195,7 @@ Void buttonRight_Fxn(PIN_Handle handle, PIN_Id pinId)
     }
 }
 
-// Left button. 
+// Left button. Interrupt will trigger on both press and release. 
 Void buttonLeft_Fxn(PIN_Handle handle, PIN_Id pinId)
 {
     uint_t buttonValue = PIN_getInputValue( pinId );
@@ -216,7 +216,18 @@ Void buttonLeft_Fxn(PIN_Handle handle, PIN_Id pinId)
 
 /* TASK FUNCTIONS */
 
-/* 
+/* UART Write Task 
+ * This task is required to initialize UART Read.
+ * 
+ * Enter state: SENDING_MESSAGE_UART
+ * Next state: SIGNALING_TO_USER
+ * 
+ * Will send command to backend corresponding to the currentGesture enum. Each message appended with ping.
+ * After command sent, will start timeoutClock_Handle which triggers an interrupt to check if pong has been
+ * recieved.
+ * 
+ * 2nd enter state: sendDataToBeVisualizedFlag set. 
+ * This will start a session and send all data in MPU_data to backend to be visualized. 
  * 
  */
 static void uartWriteTask_Fxn(UArg arg0, UArg arg1)
@@ -309,8 +320,16 @@ static void uartWriteTask_Fxn(UArg arg0, UArg arg1)
 }
 
 
-/* 
+/* UART Read Task.
+ * Priority = 1
  * 
+ * Doesn't actually initialize Uart or use Uart handle. Only checks to see if uartInterruptFlag has been set,
+ * and then reads from global uartMsgRec string. 
+ * 
+ * If task reads a BEEP sent to this sensortag, will set currentMessage enum, which will run signalToUserTask
+ * independent of the SM. 
+ * 
+ * Task will reset pong flag if pong message was recieved. 
  */
 Void uartReadTask_Fxn(UArg arg0, UArg arg1)
 {
@@ -375,8 +394,13 @@ Void uartReadTask_Fxn(UArg arg0, UArg arg1)
 }
 
 
-/* 
+/* Light Sensor Task
  * 
+ * Enter state: DETECTING_LIGHT_LEVEL  or  PLAYING_BACKGROUND_MUSIC
+ * Next state: READING_MPU_DATA  or  PLAYING_BACKGROUND_MUSIC
+ * 
+ * Task will only read light sensor after period of time, defined by lightSensor_timeout. Will change
+ * to next state regardless. 
  */
 Void lightSensorTask_Fxn(UArg arg0, UArg arg1)
 {
@@ -415,10 +439,6 @@ Void lightSensorTask_Fxn(UArg arg0, UArg arg1)
     while (1) {
         if (programState == DETECTING_LIGHT_LEVEL || programState == PLAYING_BACKGROUND_MUSIC) {
 
-            //sprintf(printBuffer, "timeout: %d last called: %d current time: %d\n", lightSensor_timeout, lightSensor_lastCalled, (int)CURRENT_TIME_MS);
-            //System_printf(printBuffer);
-            //System_flush();
-
             if ( (CURRENT_TIME_MS - lightSensor_lastCalled) > lightSensor_timeout ) // only actually sense light level every 1000 ms
             {
                 i2c = I2C_open(Board_I2C_TMP, &i2cParams);
@@ -454,8 +474,13 @@ Void lightSensorTask_Fxn(UArg arg0, UArg arg1)
 }
 
 
-/* 
+/* MPU Sensor Task
  * 
+ * Enter state: READING_MPU_DATA
+ * Next state: ANALYSING_DATA
+ * 
+ * Task will read mpu data and add it to global MPU_data array. Task frequency is also monitored and
+ * printed to console after certain number of calls. 
  */
 Void mpuSensorTask_Fxn(UArg arg0, UArg arg1)
 {
@@ -528,8 +553,13 @@ Void mpuSensorTask_Fxn(UArg arg0, UArg arg1)
 }
 
 
-/* 
+/* Gesture Analysis Task
  * 
+ * Enter state: ANALYSING_DATA
+ * Next state: SENDING_MESSAGE_UART or DETECTING_LIGHT_LEVEL
+ * 
+ * State will 'analyse' MPU_data for gestures. Currently only looks at 0 row. If gesture is detected, will
+ * change currentGesture enum to relevant gesture.
  */
 Void gestureAnalysisTask_Fxn(UArg arg0, UArg arg1)
 {
@@ -576,7 +606,19 @@ Void gestureAnalysisTask_Fxn(UArg arg0, UArg arg1)
 }
 
 
-/* 
+/* Signal To User Task
+ * 
+ * Enter state: SIGNALLING_TO_USER or currentMessage is not NO_MESSAGE
+ * Next state: DETECTING_LIGHT_LEVEL
+ * 
+ * Task will signal to the user via the buzzer of certain things. Signal will occur if:
+ * - Gesture has been detected
+ * - No pong was recieved after command send (no connection)
+ * - State machine activated/deactivated
+ * - Backend has sent BEEP to tell of low health, high health, or death. 
+ * - Data upload session has finished. 
+ * 
+ * Task will set currentMessage to NO_MESSAGE after. 
  * 
  */
 Void signalTask_Fxn(UArg arg0, UArg arg1)
@@ -627,7 +669,12 @@ Void signalTask_Fxn(UArg arg0, UArg arg1)
 }
 
 
-/* 
+/* Play Background Song Task
+ * 
+ * Enter state: PLAYING_BACKGROUND_MUSIC
+ * 
+ * Task will simply call playSongInterruptible() function and give it pointer to progam state and
+ * continue state. Function will stop playing song if programState changes from continue state. 
  * 
  */
 Void playBackgroundSongTask_Fxn(UArg arg0, UArg arg1)
@@ -649,7 +696,6 @@ Void playBackgroundSongTask_Fxn(UArg arg0, UArg arg1)
         SLEEP(50);
     }
 }
-
 
 
 /* MAIN */
