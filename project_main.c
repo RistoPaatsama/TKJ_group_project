@@ -200,7 +200,7 @@ Void buttonLeft_Fxn(PIN_Handle handle, PIN_Id pinId)
 {
     uint_t buttonValue = PIN_getInputValue( pinId );
     if (buttonValue) { // button released
-        // Nothing
+        // Nothing and somthing
 
     } else { // button pushed
         
