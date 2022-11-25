@@ -274,6 +274,7 @@ static void uartWriteTask_Fxn(UArg arg0, UArg arg1)
             pongRecievedFlag = 0;
             command_sendTime = CURRENT_TIME_MS;
 
+            memset(uartMsg, 0, BUFFER_SIZE);
             if (programState != IDLE_STATE) programState = SIGNALLING_TO_USER;
         }
 
@@ -287,7 +288,8 @@ static void uartWriteTask_Fxn(UArg arg0, UArg arg1)
 
             int i;
             for (i = 0; i < MPU_DATA_SPAN; i++){
-                sprintf(uartMsg,"%s,ax:%d,ay:%d,az:%d", tag_id, (int)(MPU_data[i][1]*100), (int)(MPU_data[i][2]*100), (int)(MPU_data[i][3]*100) ); // acc data
+                //sprintf(uartMsg,"%s,ax:%d,ay:%d,az:%d", tag_id, (int)(MPU_data[i][1]*100), (int)(MPU_data[i][2]*100), (int)(MPU_data[i][3]*100) ); // acc data
+                sprintf(uartMsg,"%s,time:%d,ax:%d,ay:%d,az:%d", tag_id, (int)(MPU_data[i][0]/100), (int)(MPU_data[i][1]*100), (int)(MPU_data[i][2]*100), (int)(MPU_data[i][3]*100) ); // acc with time data
                 //sprintf(uartMsg,"%s,gx:%d,gy:%d,gz:%d", tag_id, (int)(MPU_data[i][4]*10), (int)(MPU_data[i][5]*10), (int)(MPU_data[i][6]*10) ); // gyro data (not visualizing well)
                 UART_write(uartHandle, uartMsg, sizeof(uartMsg));
             }
@@ -298,6 +300,7 @@ static void uartWriteTask_Fxn(UArg arg0, UArg arg1)
             System_printf("... session ended\n");
             System_flush();
 
+            memset(uartMsg, 0, BUFFER_SIZE);
             currentMessage = DATA_UPLOADED;
             sendDataToBeVisualizedFlag = 0;
         }

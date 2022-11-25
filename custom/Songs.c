@@ -110,6 +110,24 @@ REST | HALF_NOTE
 };
 
 
+const uint16_t panic_signal[] = {
+            (270 / 4) << 8 | 13,
+            NOTE_D | OCT_6  | QUARTER_NOTE,
+            NOTE_GS         | HALF_NOTE,
+            NOTE_A          | SIXTEENTHS_NOTE,
+            NOTE_GS         | SIXTEENTHS_NOTE,
+            NOTE_A          | SIXTEENTHS_NOTE,
+            NOTE_GS         | SIXTEENTHS_NOTE,
+            NOTE_A          | SIXTEENTHS_NOTE,
+            NOTE_GS         | SIXTEENTHS_NOTE,
+            NOTE_A          | SIXTEENTHS_NOTE,
+            NOTE_GS         | SIXTEENTHS_NOTE,
+            NOTE_A          | SIXTEENTHS_NOTE,
+            NOTE_GS         | SIXTEENTHS_NOTE,
+            REST            | HALF_NOTE
+};
+
+
 const uint16_t jingle[] = {
                            (600 / 4) << 8 | 8,
                            NOTE_G | OCT_7 | HALF_NOTE,
