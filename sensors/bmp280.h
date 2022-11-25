@@ -2,7 +2,7 @@
  * bmp280.h
  *
  *  Created on: 7.10.2016
- *  Author: Teemu Leppänen / UBIComp / University of Oulu
+ *  Author: Teemu Leppï¿½nen / UBIComp / University of Oulu
  *
  * 	Datasheet: https://ae-bst.resource.bosch.com/media/_tech/media/datasheets/BST-BMP280-DS001-12.pdf
  */

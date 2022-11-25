@@ -99,7 +99,7 @@ static Clock_Params timeoutClock_Params;
 
 
 /* Enums for State and Gesture */
-enum state { IDLE_STATE=0, READING_MPU_DATA, DETECTING_LIGHT_LEVEL, ANALYSING_DATA, SENDING_MESSAGE_UART, SIGNALLING_TO0_USER,
+enum state { IDLE_STATE=0, READING_MPU_DATA, DETECTING_LIGHT_LEVEL, ANALYSING_DATA, SENDING_MESSAGE_UART, SIGNALLING_TO_USER,
             LISTENING_UART, BEEP_RECIEVED, PLAYING_BACKGROUND_MUSIC, NO_RESPONSE_RECIEVED, READING_BMP_DATA };
 enum state defaultStartState = READING_BMP_DATA;
 enum state programState = READING_BMP_DATA;
@@ -151,7 +151,7 @@ Void timeoutClock_Fxn(UArg arg0)
     Clock_stop(timeoutClock_Handle);
 }
 
-/*
+/**/
 Void buttonRight_Fxn(PIN_Handle handle, PIN_Id pinId)
 {
     uint_t buttonValue = PIN_getInputValue( pinId );
@@ -184,7 +184,7 @@ Void buttonRight_Fxn(PIN_Handle handle, PIN_Id pinId)
     }
     
 }
-*/
+
 
 /* TASK FUNCTIONS */
 
@@ -331,11 +331,13 @@ Void uartReadTask_Fxn(UArg arg0, UArg arg1)
  */
 Void pressureSensorTask_Fxn(UArg arg0, UArg arg1)
 {
+    System_printf("BMP280: Entering Task ...\n");
+    System_flush();
 
     I2C_Handle      i2cBMP;
     I2C_Params      i2cBMPparams;
 
-    while (MPU_setup_complete == 0){
+    while (0){
         SLEEP(100);
     }
 
@@ -354,12 +356,14 @@ Void pressureSensorTask_Fxn(UArg arg0, UArg arg1)
     System_flush();
 
     SLEEP(100);
-    opt3001_setup(&i2cBMP);
+    bmp280_setup(&i2cBMP);
 
     System_printf("BMP280: Setup OK\n");
     System_flush();
 
     I2C_close(i2cBMP);
+
+    playSong(buzzerHandle, tetris_theme_song);
 
     while (1) {
         if (programState == READING_BMP_DATA) {
@@ -371,13 +375,15 @@ Void pressureSensorTask_Fxn(UArg arg0, UArg arg1)
             bmp280_get_data(&i2cBMP, &pressure, &temp_comp);
             I2C_close(i2cBMP);
 
-            sprintf(printBuffer, "pressure: %.2lf\n, temperature compensation: %.2lf\n", pressure, temp_comp);
+            sprintf(printBuffer, "%.2f, %.2f\n", pressure, temp_comp);
             System_printf(printBuffer);
             System_flush();
         }
         SLEEP(100);
     }
 }
+
+
 
 Void lightSensorTask_Fxn(UArg arg0, UArg arg1)
 {
@@ -656,7 +662,7 @@ Int main(void) {
 
     /* Initializing Tasks */
     
-    Task_Params_init(&mpuSensorTask_Params);
+    /*Task_Params_init(&mpuSensorTask_Params);
     mpuSensorTask_Params.stackSize = STACKSIZE_LARGE;
     mpuSensorTask_Params.stack = &mpuSensorTask_Stack;
     mpuSensorTask_Params.priority=2;
@@ -673,20 +679,19 @@ Int main(void) {
     lightSensorTask_Handle = Task_create(lightSensorTask_Fxn, &lightSensorTask_Params, NULL);
     if (lightSensorTask_Handle == NULL) {
         System_abort("lightSensorTask create failed!");
-    }
+    }*/
 
-    /*
+    
     Task_Params_init(&pressureSensorTask_Params);
-    lightSensorTask_Params.stackSize = STACKSIZE_LARGE;
-    lightSensorTask_Params.stack = &pressureSensorTask_Stack;
-    lightSensorTask_Params.priority=2;
+    pressureSensorTask_Params.stackSize = STACKSIZE_LARGE;
+    pressureSensorTask_Params.stack = &pressureSensorTask_Stack;
+    pressureSensorTask_Params.priority=2;
     pressureSensorTask_Handle = Task_create(pressureSensorTask_Fxn, &pressureSensorTask_Params, NULL);
     if (pressureSensorTask_Handle == NULL) {
         System_abort("pressureSensorTask create failed!");
     }
-    */
-
-    //MPU_setup_complete = 1;
+    
+/*
     Task_Params_init(&gestureAnalysisTask_Params);
     gestureAnalysisTask_Params.stackSize = STACKSIZE;
     gestureAnalysisTask_Params.stack = &gestureAnalysisTask_Stack;
@@ -733,7 +738,7 @@ Int main(void) {
     playBackgroundSongTask_Handle = Task_create(playBackgroundSongTask_Fxn, &playBackgroundSongTask_Params, NULL);
     if (playBackgroundSongTask_Handle == NULL) {
         System_abort("playBackgroundSongTask create failed!");
-    }
+    }*/
 
 
     /* Power pin for MPU */

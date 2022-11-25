@@ -156,18 +156,19 @@ void bmp280_get_data(I2C_Handle *i2c, double *pressure, double *temperature) {
     I2C_Transaction i2cMessage;
 
     i2cMessage.slaveAddress = Board_BMP280_ADDR;
-    txBuffer[0] = BMP280_REG_PRES_MSB;      // Rekisterin osoite lähetyspuskuriin
-    i2cMessage.writeBuf = txBuffer; // Lähetyspuskurin asetus
-    i2cMessage.writeCount = 1;      // Lähetetään 1 tavu
+    txBuffer[0] = BMP280_REG_PRES_MSB;      // Rekisterin osoite lï¿½hetyspuskuriin
+    i2cMessage.writeBuf = txBuffer; // Lï¿½hetyspuskurin asetus
+    i2cMessage.writeCount = 1;      // Lï¿½hetetï¿½ï¿½n 1 tavu
     i2cMessage.readBuf = rxBuffer;  // Vastaanottopuskurin asetus
     i2cMessage.readCount = 6;       // Vastaanotetaan 6 tavua
 
     if (I2C_transfer(*i2c, &i2cMessage)) {
 
-        uint32_t pressure = ((((uint32_t)rxBuffer[0] << 8) | rxBuffer[1]) << 4) | (rxBuffer[2] >> 4);
-        uint32_t temp = ((((uint32_t)rxBuffer[3] << 8) | rxBuffer[4]) << 4) | (rxBuffer[5] >> 4);
-        bmp280_temp_compensation(temp);
-        bmp280_convert_pres(pressure);
+        uint32_t pressureBits = rxBuffer[0] << 12 | rxBuffer[1] << 4 | (rxBuffer[2] & 0xf0) >> 4;
+        uint32_t tempBits = rxBuffer[3] << 12 | rxBuffer[4] << 4 | rxBuffer[5];
+
+        *pressure = bmp280_convert_pres(pressureBits);
+        *temperature = bmp280_temp_compensation(tempBits);
 
     } else {
 
