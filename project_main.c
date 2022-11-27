@@ -37,7 +37,7 @@
 #define SLIDING_MEAN_WINDOW     3
 #define BUFFER_SIZE             80
 #define MESSAGE_COUNT           10
-#define CHEAT_VALUE             1900000000
+#define CHEAT_VALUE             111300
 
 /* Task stacks */
 #define STACKSIZE_MPU_SENSOR_TASK       1500
@@ -136,6 +136,9 @@ uint8_t lastCommWasBeepFlag = 1; // tells the program if it sent a command or re
 uint8_t sendDataToBeVisualizedFlag = 0; 
 uint8_t eastereggCompleted = 0;
 uint8_t cheatsUsed = 0;
+uint8_t eastereggStarted = 0;
+uint8_t cheatingFlag = 0;
+
 
 /* Global variables */
 uint8_t uartBuffer[BUFFER_SIZE];
@@ -180,7 +183,7 @@ Void buttonRight_Fxn(PIN_Handle handle, PIN_Id pinId)
     uint_t buttonValue = PIN_getInputValue( pinId );
     if (buttonValue) { // button released
         // Nothing
-        if ((CURRENT_TIME_MS - buttonRight_PressTime) > 5000)
+        if ((CURRENT_TIME_MS - buttonRight_PressTime) > 3000 && eastereggCompleted == 0)
         {
             currentEasteregg = EASTER_EGG;
             currentMessage = TETRIS;
@@ -496,7 +499,7 @@ Void lightSensorTask_Fxn(UArg arg0, UArg arg1)
                 }
             }
          }
-         if (currentEasteregg != NO_EASTEREGG && eastereggCompleted == 1) {
+         if (currentEasteregg != NO_EASTEREGG && eastereggStarted == 1) {
              i2c = I2C_open(Board_I2C_TMP, &i2cParams);
              if (i2c == NULL) {
                  System_abort("BMP280: Error Initializing I2C\n");
@@ -510,13 +513,14 @@ Void lightSensorTask_Fxn(UArg arg0, UArg arg1)
              System_printf(printBuffer);
              System_flush();*/
 
-             if (pressure > CHEAT_VALUE) {
+             if (pressure > CHEAT_VALUE ) {
+                 if (cheatsUsed == 1) {
+                     eastereggStarted = 0;
+                     eastereggCompleted = 1;
+                 }
                  currentEasteregg = LOTTERY;
                  currentMessage = WON;
-                 if (cheatsUsed > 2) {
-                     System_abort("Hacker Detected\n");
-                 }
-                 currentGesture = CHEATING;
+                 cheatingFlag = 1;
              }
          }
         SLEEP(50);
@@ -687,7 +691,14 @@ Void gestureAnalysisTask_Fxn(UArg arg0, UArg arg1)
                 System_printf("Playing detected!\n");
                 System_flush();
                 currentGesture = PLAYING;
-            } else {
+            } else if(cheatingFlag == 1){
+                System_printf("You Cheated!\n");
+                System_flush();
+                currentGesture = CHEATING;
+                cheatingFlag = 0;
+               
+            }
+            else {
                 currentGesture = NO_GESTURE;
             }
 
@@ -762,14 +773,14 @@ Void signalTask_Fxn(UArg arg0, UArg arg1)
                 } else if (currentMessage == TETRIS) {
                     programState = IDLE_STATE;
                     playSong(buzzerHandle, tetris_theme_song);
-                    eastereggCompleted = 1;
+                    eastereggStarted = 1;
                     programState = defaultStartState;
                 }
                 else if (currentMessage == WON) {
                     programState = IDLE_STATE;
-                    playSong(buzzerHandle, tetris_theme_song);
-                    cheatsUsed++;
-                    programState = SENDING_MESSAGE_UART;;
+                    playSong(buzzerHandle, winning_signal);
+                    cheatsUsed = cheatsUsed + 1;
+                    programState = defaultStartState;
                 }
             }
             currentMessage = NO_MESSAGE;

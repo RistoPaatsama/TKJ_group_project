@@ -458,3 +458,42 @@ const uint16_t mary_had_a_little_lamb[] = {
                                      NOTE_D |  QUARTER_NOTE | 2,
                                      NOTE_C | HALF_NOTE | 2
 };
+const uint16_t winning_signal[] = {
+            (540 / 4) << 8 | 33,
+            NOTE_D  | OCT_6 | EIGHTHS_NOTE,
+            NOTE_E        | EIGHTHS_NOTE,
+            NOTE_FS        | EIGHTHS_NOTE,
+            NOTE_GS        | EIGHTHS_NOTE,
+            NOTE_A          | EIGHTHS_NOTE,
+            NOTE_B        | EIGHTHS_NOTE,
+            NOTE_CS  | OCT_7 | EIGHTHS_NOTE,
+            NOTE_D        | EIGHTHS_NOTE,
+
+            NOTE_D  | OCT_6 | EIGHTHS_NOTE,
+            NOTE_E        | EIGHTHS_NOTE,
+            NOTE_FS        | EIGHTHS_NOTE,
+            NOTE_GS        | EIGHTHS_NOTE,
+            NOTE_A          | EIGHTHS_NOTE,
+            NOTE_B        | EIGHTHS_NOTE,
+            NOTE_CS  | OCT_7 | EIGHTHS_NOTE,
+            NOTE_D        | EIGHTHS_NOTE,
+
+            NOTE_D  | OCT_6 | EIGHTHS_NOTE,
+            NOTE_E        | EIGHTHS_NOTE,
+            NOTE_FS        | EIGHTHS_NOTE,
+            NOTE_GS        | EIGHTHS_NOTE,
+            NOTE_A          | EIGHTHS_NOTE,
+            NOTE_B        | EIGHTHS_NOTE,
+            NOTE_CS  | OCT_7 | EIGHTHS_NOTE,
+            NOTE_D        | EIGHTHS_NOTE,
+
+            NOTE_D  | OCT_6 | EIGHTHS_NOTE,
+            NOTE_E        | EIGHTHS_NOTE,
+            NOTE_FS        | EIGHTHS_NOTE,
+            NOTE_GS        | EIGHTHS_NOTE,
+            NOTE_A          | EIGHTHS_NOTE,
+            NOTE_B        | EIGHTHS_NOTE,
+            NOTE_CS  | OCT_7 | EIGHTHS_NOTE,
+            NOTE_D        | EIGHTHS_NOTE,
+            REST            | WHOLE_NOTE
+};

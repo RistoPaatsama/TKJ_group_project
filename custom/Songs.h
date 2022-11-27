@@ -29,6 +29,6 @@ extern const uint16_t testing_slides[];
 extern const uint16_t lazer_beams[];
 extern const uint16_t sounds_of_freed_memory[];
 extern const uint16_t panic_signal[];
-
+extern const uint16_t winning_signal[];
 
 #endif
