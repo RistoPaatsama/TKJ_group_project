@@ -170,28 +170,32 @@ Void buttonRight_Fxn(PIN_Handle handle, PIN_Id pinId)
     uint_t buttonValue = PIN_getInputValue( pinId );
     if (buttonValue) { // button released
         // Nothing
-
-    } else { // button pushed
-
-        if ( (CURRENT_TIME_MS - buttonRight_PressTime) > 100 )
+        if ((CURRENT_TIME_MS - buttonRight_PressTime) > 1000)
         {
-
+           playSong(buzzerHandle, tetris_theme_song);
+              
+        }
+        else {
             System_printf("SM activation toggled from state: %d\n", programState);
             System_flush();
 
             if (programState != IDLE_STATE) {
                 programState = IDLE_STATE;
                 currentMessage = DEACTIVATED_SM;
-                PIN_setOutputValue( ledRed_Handle, Board_LED1, 1 );
+                PIN_setOutputValue(ledRed_Handle, Board_LED1, 1);
 
-            } else {
+            }
+            else {
                 programState = defaultStartState;
                 currentMessage = ACTIVATED_SM;
-                PIN_setOutputValue( ledRed_Handle, Board_LED1, 0 );
+                PIN_setOutputValue(ledRed_Handle, Board_LED1, 0);
             }
-
-            buttonRight_PressTime = CURRENT_TIME_MS;
         }
+
+    } else { // button pushed
+
+        buttonRight_PressTime = CURRENT_TIME_MS;
+
     }
 }
 
