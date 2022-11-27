@@ -13,6 +13,7 @@ extern const uint16_t deactivate_signal[];
 extern const uint16_t low_health_signal[];
 extern const uint16_t low_battery_signal[];
 extern const uint16_t session_completed_signal[];
+extern const uint16_t winning_signal[];
 
 extern const uint16_t requiem[];
 extern const uint16_t lullaby[];

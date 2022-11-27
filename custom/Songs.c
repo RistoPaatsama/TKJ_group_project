@@ -110,6 +110,47 @@ REST | HALF_NOTE
 };
 
 
+const uint16_t winning_signal[] = {
+            (540 / 4) << 8 | 13,
+            NOTE_D	| OCT_6 | EIGHTHS_NOTE,
+            NOTE_E		    | EIGHTHS_NOTE,
+            NOTE_FS		    | EIGHTHS_NOTE,
+            NOTE_GS		    | EIGHTHS_NOTE,
+            NOTE_A          | EIGHTHS_NOTE,
+            NOTE_B		    | EIGHTHS_NOTE,
+            NOTE_CS	| OCT_7 | EIGHTHS_NOTE,
+            NOTE_D		    | EIGHTHS_NOTE,
+
+            NOTE_D	| OCT_6 | EIGHTHS_NOTE,
+            NOTE_E		    | EIGHTHS_NOTE,
+            NOTE_FS		    | EIGHTHS_NOTE,
+            NOTE_GS		    | EIGHTHS_NOTE,
+            NOTE_A          | EIGHTHS_NOTE,
+            NOTE_B		    | EIGHTHS_NOTE,
+            NOTE_CS	| OCT_7 | EIGHTHS_NOTE,
+            NOTE_D		    | EIGHTHS_NOTE,
+
+            NOTE_D	| OCT_6 | EIGHTHS_NOTE,
+            NOTE_E		    | EIGHTHS_NOTE,
+            NOTE_FS		    | EIGHTHS_NOTE,
+            NOTE_GS		    | EIGHTHS_NOTE,
+            NOTE_A          | EIGHTHS_NOTE,
+            NOTE_B		    | EIGHTHS_NOTE,
+            NOTE_CS	| OCT_7 | EIGHTHS_NOTE,
+            NOTE_D		    | EIGHTHS_NOTE,
+
+            NOTE_D	| OCT_6 | EIGHTHS_NOTE,
+            NOTE_E		    | EIGHTHS_NOTE,
+            NOTE_FS		    | EIGHTHS_NOTE,
+            NOTE_GS		    | EIGHTHS_NOTE,
+            NOTE_A          | EIGHTHS_NOTE,
+            NOTE_B		    | EIGHTHS_NOTE,
+            NOTE_CS	| OCT_7 | EIGHTHS_NOTE,
+            NOTE_D		    | EIGHTHS_NOTE,
+            REST            | WHOLE_NOTE
+};
+
+
 const uint16_t panic_signal[] = {
             (270 / 4) << 8 | 13,
             NOTE_D | OCT_6  | QUARTER_NOTE,
@@ -195,7 +236,7 @@ const uint16_t lazer_beams[] = {
 
 /* Songs of old programs, long forgotten memories, bits dispersed, trampled by the neverending march of progress */
 const uint16_t sounds_of_freed_memory[] = {
-                                              (180/4) << 8 | 40
+                                              (500/4) << 8 | 100
 };
 
 
