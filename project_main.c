@@ -41,6 +41,7 @@
 /* Task stacks */
 #define STACKSIZE_MPU_SENSOR_TASK       1500
 #define STACKSIZE_LIGHT_SENSOR_TASK     1025
+//#define STACKSIZE_PRESSURE_SENSOR_TASK      1025
 #define STACKSIZE_GESTURE_SENSOR_TASK   512
 #define STACKSIZE_UART_WRITE_TASK       2000
 #define STACKSIZE_UART_READ_TASK        512
@@ -49,6 +50,7 @@
 
 Char mpuSensorTask_Stack[ STACKSIZE_MPU_SENSOR_TASK ];
 Char lightSensorTask_Stack[ STACKSIZE_LIGHT_SENSOR_TASK ];
+//Char pressureSensorTask_Stack[STACKSIZE_PRESSURE_SENSOR_TASK];
 Char gestureAnalysisTask_Stack[ STACKSIZE_GESTURE_SENSOR_TASK ];
 Char uartWriteTask_Stack[ STACKSIZE_UART_WRITE_TASK ];
 Char uartReadTask_Stack[ STACKSIZE_UART_READ_TASK ];
@@ -120,8 +122,11 @@ enum state programState = READING_MPU_DATA;
 enum gesture { NO_GESTURE=0, PETTING, PLAYING, SLEEPING, EATING, WALKING };
 enum gesture currentGesture = NO_GESTURE;
 
-enum message { NO_MESSAGE=0, TOO_FULL, LOW_HEALTH, DEATH, NO_PONG_RECIEVED, DEACTIVATED_SM, ACTIVATED_SM, DATA_UPLOADED };
+enum message { NO_MESSAGE=0, TOO_FULL, LOW_HEALTH, DEATH, NO_PONG_RECIEVED, DEACTIVATED_SM, ACTIVATED_SM, DATA_UPLOADED, TETRIS, LOTTERY };
 enum message currentMessage = NO_MESSAGE;
+
+enum easteregg { NO_EASTEREGG = 0, EASTER_EGG, READING_BMP_DATA};
+enum easteregg currentEasteregg = NO_EASTEREGG;
 
 /* Global flags */
 uint8_t uartInterruptFlag = 0;
@@ -146,6 +151,8 @@ int mpu_lastPrinted = 0;
 float MPU_data[MPU_DATA_SPAN][7];
 float MPU_data_buffer[SLIDING_MEAN_WINDOW][7];
 
+double pressure;
+double temp_comp;
 
 /* INTERRUPT HANDLERS */
 
@@ -170,10 +177,11 @@ Void buttonRight_Fxn(PIN_Handle handle, PIN_Id pinId)
     uint_t buttonValue = PIN_getInputValue( pinId );
     if (buttonValue) { // button released
         // Nothing
-        if ((CURRENT_TIME_MS - buttonRight_PressTime) > 1000)
+        if ((CURRENT_TIME_MS - buttonRight_PressTime) > 5000)
         {
-           playSong(buzzerHandle, tetris_theme_song);
-              
+            currentEasteregg = EASTER_EGG;
+            currentMessage = TETRIS;
+
         }
         else {
             System_printf("SM activation toggled from state: %d\n", programState);
@@ -414,7 +422,7 @@ Void lightSensorTask_Fxn(UArg arg0, UArg arg1)
     I2C_Handle      i2c;
     I2C_Params      i2cParams;
 
-    while (MPU_setup_complete == 0){
+    while (MPU_setup_complete == 0) {
         SLEEP(100);
     }
 
@@ -440,17 +448,32 @@ Void lightSensorTask_Fxn(UArg arg0, UArg arg1)
 
     I2C_close(i2c);
 
-    while (1) {
-        if (programState == DETECTING_LIGHT_LEVEL || programState == PLAYING_BACKGROUND_MUSIC) {
+/*
+    System_printf("OPT3001: Setup OK\n");
+    System_flush();
 
-            if ( (CURRENT_TIME_MS - lightSensor_lastCalled) > lightSensor_timeout ) // only actually sense light level every 1000 ms
+    System_printf("BMP280: Setting up I2C ...\n");
+    System_flush();
+
+    SLEEP(100);
+    bmp280_setup(&i2c);
+
+    System_printf("BMP280: Setup OK\n");
+    System_flush();
+    */
+
+    while (1) {
+
+         if (programState == DETECTING_LIGHT_LEVEL || programState == PLAYING_BACKGROUND_MUSIC) {
+
+            if ((CURRENT_TIME_MS - lightSensor_lastCalled) > lightSensor_timeout) // only actually sense light level every 1000 ms
             {
                 i2c = I2C_open(Board_I2C_TMP, &i2cParams);
                 if (i2c == NULL) {
                     System_abort("Error Initializing I2C\n");
                 }
                 int i;
-                for (i = 0; i < 10; i++){
+                for (i = 0; i < 10; i++) {
                     lux = opt3001_get_data(&i2c);
                     if (lux != -1) break;
                 }
@@ -465,19 +488,80 @@ Void lightSensorTask_Fxn(UArg arg0, UArg arg1)
 
             if (programState != IDLE_STATE)
             {
-                if ( lux < Sleep_Light_Threshold ) {
+                if (lux < Sleep_Light_Threshold) {
                     programState = PLAYING_BACKGROUND_MUSIC;
-                
-                } else {
+
+                }
+                else {
                     programState = READING_MPU_DATA;
                 }
             }
-        }
+         }
+       /*  if (currentEasteregg == EASTER_EGG) {
+             i2c = I2C_open(Board_I2C_TMP, &i2cParams);
+             if (i2c == NULL) {
+                 System_abort("BMP280: Error Initializing I2C\n");
+             }
+
+             pressure = bmp280_get_data(&i2c, &pressure, &temp_comp);
+             I2C_close(i2c);
+         }*/
         SLEEP(50);
     }
 }
+/*
+Void pressureSensorTask_Fxn(UArg arg0, UArg arg1)
+{
 
+    I2C_Handle      i2cBMP;
+    I2C_Params      i2cBMPparams;
 
+    while (0) {
+        SLEEP(100);
+    }
+
+    I2C_Params_init(&i2cBMPparams);
+    i2cBMPparams.bitRate = I2C_400kHz;
+
+    System_printf("BMP280: Opening I2C handle ...\n");
+    System_flush();
+
+    i2cBMP = I2C_open(Board_I2C_TMP, &i2cBMPparams);
+    if (i2cBMP == NULL) {
+        System_abort("Error Initializing I2C\n");
+    }
+
+    System_printf("BMP280: Setting up I2C ...\n");
+    System_flush();
+
+    SLEEP(100);
+    bmp280_setup(&i2cBMP);
+
+    System_printf("BMP280: Setup OK\n");
+    System_flush();
+
+    I2C_close(i2cBMP);
+
+    playSong(buzzerHandle, tetris_theme_song);
+
+    while (1) {
+        if (programState == READING_BMP_DATA) {
+
+            i2cBMP = I2C_open(Board_I2C_TMP, &i2cBMPparams);
+            if (i2cBMP == NULL) {
+                System_abort("Error Initializing I2C\n");
+            }
+            bmp280_get_data(&i2cBMP, &pressure, &temp_comp);
+            I2C_close(i2cBMP);
+
+            sprintf(printBuffer, "%.2f, %.2f\n", pressure, temp_comp);
+            System_printf(printBuffer);
+            System_flush();
+        }
+        SLEEP(100);
+    }
+}
+*/
 /* MPU Sensor Task
  * 
  * Enter state: READING_MPU_DATA
@@ -662,7 +746,11 @@ Void signalTask_Fxn(UArg arg0, UArg arg1)
                 
                 } else if (currentMessage == DATA_UPLOADED) {
                     playSong(buzzerHandle, session_completed_signal);
-                } 
+                } else if (currentMessage == TETRIS) {
+                   // programState = IDLE_STATE;
+                    playSong(buzzerHandle, tetris_theme_song);
+                    //programState = defaultStartState;
+                }
             }
             currentMessage = NO_MESSAGE;
 
@@ -711,7 +799,10 @@ Int main(void) {
 
     Task_Handle lightSensorTask_Handle;
     Task_Params lightSensorTask_Params;
-
+/*
+    Task_Handle pressureSensorTask_Handle;
+    Task_Params pressureSensorTask_Params;
+*/
     Task_Handle gestureAnalysisTask_Handle;
     Task_Params gestureAnalysisTask_Params;
 
@@ -752,7 +843,16 @@ Int main(void) {
     if (lightSensorTask_Handle == NULL) {
         System_abort("lightSensorTask create failed!");
     }
-
+/*
+    Task_Params_init(&pressureSensorTask_Params);
+    pressureSensorTask_Params.stackSize = STACKSIZE_LARGE;
+    pressureSensorTask_Params.stack = &pressureSensorTask_Stack;
+    pressureSensorTask_Params.priority = 2;
+    pressureSensorTask_Handle = Task_create(pressureSensorTask_Fxn, &pressureSensorTask_Params, NULL);
+    if (pressureSensorTask_Handle == NULL) {
+        System_abort("pressureSensorTask create failed!");
+    }
+*/
     Task_Params_init(&gestureAnalysisTask_Params);
     gestureAnalysisTask_Params.stackSize = STACKSIZE_GESTURE_SENSOR_TASK;
     gestureAnalysisTask_Params.stack = &gestureAnalysisTask_Stack;
