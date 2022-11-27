@@ -111,7 +111,7 @@ REST | HALF_NOTE
 
 
 const uint16_t winning_signal[] = {
-            (540 / 4) << 8 | 13,
+            (540 / 4) << 8 | 33,
             NOTE_D	| OCT_6 | EIGHTHS_NOTE,
             NOTE_E		    | EIGHTHS_NOTE,
             NOTE_FS		    | EIGHTHS_NOTE,
