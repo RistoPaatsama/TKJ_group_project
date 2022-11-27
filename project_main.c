@@ -658,6 +658,7 @@ Void mpuSensorTask_Fxn(UArg arg0, UArg arg1)
 }
 
 
+
 /* Gesture Analysis Task
  * 
  * Enter state: ANALYSING_DATA
