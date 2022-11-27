@@ -37,6 +37,7 @@
 #define SLIDING_MEAN_WINDOW     3
 #define BUFFER_SIZE             80
 #define MESSAGE_COUNT           10
+#define CHEAT_VALUE             1900000000
 
 /* Task stacks */
 #define STACKSIZE_MPU_SENSOR_TASK       1500
@@ -119,13 +120,13 @@ enum state { IDLE_STATE=0, READING_MPU_DATA, DETECTING_LIGHT_LEVEL, ANALYSING_DA
 enum state defaultStartState = READING_MPU_DATA; 
 enum state programState = READING_MPU_DATA;
 
-enum gesture { NO_GESTURE=0, PETTING, PLAYING, SLEEPING, EATING, WALKING };
+enum gesture { NO_GESTURE=0, PETTING, PLAYING, SLEEPING, EATING, WALKING, CHEATING };
 enum gesture currentGesture = NO_GESTURE;
 
-enum message { NO_MESSAGE=0, TOO_FULL, LOW_HEALTH, DEATH, NO_PONG_RECIEVED, DEACTIVATED_SM, ACTIVATED_SM, DATA_UPLOADED, TETRIS, LOTTERY };
+enum message { NO_MESSAGE=0, TOO_FULL, LOW_HEALTH, DEATH, NO_PONG_RECIEVED, DEACTIVATED_SM, ACTIVATED_SM, DATA_UPLOADED, TETRIS, WON };
 enum message currentMessage = NO_MESSAGE;
 
-enum easteregg { NO_EASTEREGG = 0, EASTER_EGG, READING_BMP_DATA};
+enum easteregg { NO_EASTEREGG = 0, EASTER_EGG, LOTTERY};
 enum easteregg currentEasteregg = NO_EASTEREGG;
 
 /* Global flags */
@@ -133,6 +134,8 @@ uint8_t uartInterruptFlag = 0;
 uint8_t pongRecievedFlag = 1;
 uint8_t lastCommWasBeepFlag = 1; // tells the program if it sent a command or recieved a beep last
 uint8_t sendDataToBeVisualizedFlag = 0; 
+uint8_t eastereggCompleted = 0;
+uint8_t cheatsUsed = 0;
 
 /* Global variables */
 uint8_t uartBuffer[BUFFER_SIZE];
@@ -255,7 +258,7 @@ static void uartWriteTask_Fxn(UArg arg0, UArg arg1)
         "PET:1",
         "EAT:1",
         "EXERCISE:1",
-        "ACTIVATE:1;1;1",
+        "ACTIVATE:5;5;5",
         "id:2231,MSG1:Health: ##--- 40%",
         "id:2231,MSG2:State 2 / Value 2.21",
         "ENERGY:3"
@@ -289,6 +292,8 @@ static void uartWriteTask_Fxn(UArg arg0, UArg arg1)
                 sprintf(uartMsg, "%s,%s,ping", tag_id, msg[2]);
             } else if(currentGesture == PLAYING){
                 sprintf(uartMsg, "%s,%s,ping", tag_id, msg[3]);
+            } else if (currentGesture == CHEATING) {
+                sprintf(uartMsg, "%s,%s,ping", tag_id, msg[4]);
             }
             System_printf("Sending uart message: %s\n", uartMsg);
             System_flush();
@@ -446,12 +451,6 @@ Void lightSensorTask_Fxn(UArg arg0, UArg arg1)
     System_printf("OPT3001: Setup OK\n");
     System_flush();
 
-    I2C_close(i2c);
-
-/*
-    System_printf("OPT3001: Setup OK\n");
-    System_flush();
-
     System_printf("BMP280: Setting up I2C ...\n");
     System_flush();
 
@@ -460,7 +459,7 @@ Void lightSensorTask_Fxn(UArg arg0, UArg arg1)
 
     System_printf("BMP280: Setup OK\n");
     System_flush();
-    */
+    I2C_close(i2c);
 
     while (1) {
 
@@ -470,7 +469,7 @@ Void lightSensorTask_Fxn(UArg arg0, UArg arg1)
             {
                 i2c = I2C_open(Board_I2C_TMP, &i2cParams);
                 if (i2c == NULL) {
-                    System_abort("Error Initializing I2C\n");
+                    System_abort("OPT3001: Error Initializing I2C\n");
                 }
                 int i;
                 for (i = 0; i < 10; i++) {
@@ -497,15 +496,29 @@ Void lightSensorTask_Fxn(UArg arg0, UArg arg1)
                 }
             }
          }
-       /*  if (currentEasteregg == EASTER_EGG) {
+         if (currentEasteregg != NO_EASTEREGG && eastereggCompleted == 1) {
              i2c = I2C_open(Board_I2C_TMP, &i2cParams);
              if (i2c == NULL) {
                  System_abort("BMP280: Error Initializing I2C\n");
              }
+            
+             bmp280_get_data(&i2c, &pressure, &temp_comp);
 
-             pressure = bmp280_get_data(&i2c, &pressure, &temp_comp);
              I2C_close(i2c);
-         }*/
+
+             /*sprintf(printBuffer, "Light level: %.2f\n", pressure);
+             System_printf(printBuffer);
+             System_flush();*/
+
+             if (pressure > CHEAT_VALUE) {
+                 currentEasteregg = LOTTERY;
+                 currentMessage = WON;
+                 if (cheatsUsed > 2) {
+                     System_abort("Hacker Detected\n");
+                 }
+                 currentGesture = CHEATING;
+             }
+         }
         SLEEP(50);
     }
 }
@@ -610,7 +623,7 @@ Void mpuSensorTask_Fxn(UArg arg0, UArg arg1)
 
             i2cMPU = I2C_open(Board_I2C0, &i2cMPUParams);
             if (i2cMPU == NULL) {
-                System_abort("Error Initializing I2C\n");
+                System_abort(" MPU: Error Initializing I2C\n");
             }
             mpu9250_get_data(&i2cMPU, &ax, &ay, &az, &gx, &gy, &gz);
             time = CURRENT_TIME_MS;
@@ -747,9 +760,16 @@ Void signalTask_Fxn(UArg arg0, UArg arg1)
                 } else if (currentMessage == DATA_UPLOADED) {
                     playSong(buzzerHandle, session_completed_signal);
                 } else if (currentMessage == TETRIS) {
-                   // programState = IDLE_STATE;
+                    programState = IDLE_STATE;
                     playSong(buzzerHandle, tetris_theme_song);
-                    //programState = defaultStartState;
+                    eastereggCompleted = 1;
+                    programState = defaultStartState;
+                }
+                else if (currentMessage == WON) {
+                    programState = IDLE_STATE;
+                    playSong(buzzerHandle, tetris_theme_song);
+                    cheatsUsed++;
+                    programState = SENDING_MESSAGE_UART;;
                 }
             }
             currentMessage = NO_MESSAGE;
