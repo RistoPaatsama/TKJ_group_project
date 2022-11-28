@@ -86,27 +86,25 @@ const uint16_t low_battery_signal[] = {
 };
 
 
-const uint16_t session_completed_signal[] = {
-    (450 / 4) << 8 | 19 ,
-6 << 12 | OCT_7 | EIGHTHS_NOTE,
-1 << 12 | OCT_6 | EIGHTHS_NOTE,
-8 << 12 | OCT_6 | EIGHTHS_NOTE,
-10 << 12 | OCT_7 | EIGHTHS_NOTE,
-5 << 12 | OCT_7 | EIGHTHS_NOTE,
-0 << 12 | OCT_6 | EIGHTHS_NOTE,
-2 << 12 | OCT_7 | EIGHTHS_NOTE,
-9 << 12 | OCT_7 | EIGHTHS_NOTE,
-4 << 12 | OCT_7 | EIGHTHS_NOTE,
-6 << 12 | OCT_8 | EIGHTHS_NOTE,
-1 << 12 | OCT_7 | EIGHTHS_NOTE,
-8 << 12 | OCT_7 | EIGHTHS_NOTE,
-10 << 12 | OCT_8 | EIGHTHS_NOTE,
-5 << 12 | OCT_8 | EIGHTHS_NOTE,
-0 << 12 | OCT_7 | EIGHTHS_NOTE,
-2 << 12 | OCT_8 | EIGHTHS_NOTE,
-9 << 12 | OCT_8 | EIGHTHS_NOTE,
-4 << 12 | OCT_8 | EIGHTHS_NOTE,
-REST | HALF_NOTE
+const uint16_t data_uploaded_signal[] = {
+        (350 / 4) << 8 | 17 ,
+        6 << 12 | OCT_6 | EIGHTHS_NOTE,
+        11 << 12 | OCT_6 | EIGHTHS_NOTE,
+        4 << 12 | OCT_7 | EIGHTHS_NOTE,
+        9 << 12 | OCT_7 | EIGHTHS_NOTE,
+        10 << 12 | OCT_6 | EIGHTHS_NOTE,
+        3 << 12 | OCT_7 | EIGHTHS_NOTE,
+        8 << 12 | OCT_7 | EIGHTHS_NOTE,
+        1 << 12 | OCT_7 | EIGHTHS_NOTE,
+        2 << 12 | OCT_6 | EIGHTHS_NOTE,
+        7 << 12 | OCT_7 | EIGHTHS_NOTE,
+        0 << 12 | OCT_7 | EIGHTHS_NOTE,
+        5 << 12 | OCT_8 | EIGHTHS_NOTE,
+        6 << 12 | OCT_7 | EIGHTHS_NOTE,
+        11 << 12 | OCT_7 | EIGHTHS_NOTE,
+        4 << 12 | OCT_8 | EIGHTHS_NOTE,
+        9 << 12 | OCT_8 | EIGHTHS_NOTE,
+        REST | HALF_NOTE
 };
 
 

@@ -128,7 +128,8 @@ enum message currentMessage = NO_MESSAGE;
 uint8_t uartInterruptFlag = 0;
 uint8_t pongRecievedFlag = 1;
 uint8_t lastCommWasBeepFlag = 1; // tells the program if it sent a command or recieved a beep last
-uint8_t sendDataToBeVisualizedFlag = 0; 
+uint8_t sendDataToBeVisualizedFlag = 0;
+uint8_t bothI2COpenedFlag = 0;
 
 /* Global variables */
 uint32_t beginningClockTicks;
@@ -243,7 +244,7 @@ static void uartWriteTask_Fxn(UArg arg0, UArg arg1)
 
     char tag_id[] = "id:2231";
     char uartMsg[BUFFER_SIZE];
-    memset(uartMsg, 0, BUFFER_SIZE);
+    memset(uartMsg, '\0', BUFFER_SIZE);
     char msg[MESSAGE_COUNT][BUFFER_SIZE] = {
         "ping",
         "PET:1",
@@ -289,19 +290,20 @@ static void uartWriteTask_Fxn(UArg arg0, UArg arg1)
             System_printf("Sending uart message: %s\n", uartMsg);
             System_flush();
             UART_write(uartHandle, uartMsg, sizeof(uartMsg));
+            memset(uartMsg, '\0', BUFFER_SIZE);
             Clock_start(timeoutClock_Handle); // timeout clock for checking pong
             pongRecievedFlag = 0;
             command_sendTime = CURRENT_TIME_MS;
 
-            memset(uartMsg, 0, BUFFER_SIZE);
             if (programState != IDLE_STATE) programState = SIGNALLING_TO_USER;
         }
 
         else if (sendDataToBeVisualizedFlag == 1) { // Send data to backend to be visualized
         
-            memset(uartMsg, 0, BUFFER_SIZE);
             sprintf(uartMsg, "%s,%s", tag_id, session_start_msg);
             UART_write(uartHandle, uartMsg, sizeof(uartMsg));
+            memset(uartMsg, '\0', BUFFER_SIZE);
+            SLEEP(100);
             
             System_printf("Session started ...\n");
             System_flush();
@@ -309,18 +311,22 @@ static void uartWriteTask_Fxn(UArg arg0, UArg arg1)
             int i;
             for (i = 0; i < MPU_DATA_SPAN; i++){
                 //sprintf(uartMsg,"%s,ax:%d,ay:%d,az:%d", tag_id, (int)(MPU_data[i][1]*100), (int)(MPU_data[i][2]*100), (int)(MPU_data[i][3]*100) ); // acc data
-                sprintf(uartMsg,"%s,time:%d,ax:%d,ay:%d,az:%d", tag_id, (int)(MPU_data[i][0]), (int)(MPU_data[i][1]*100), (int)(MPU_data[i][2]*100), (int)(MPU_data[i][3]*100) ); // acc with time data
+                sprintf(uartMsg,"%s,time:%d,ax:%d,ay:%d,az:%d,gx:%d,gy:%d,gz:%d", tag_id, (int)(MPU_data[i][0]),  
+                        (int)(MPU_data[i][1]*100), (int)(MPU_data[i][2]*100), (int)(MPU_data[i][3]*100),
+                        (int)(MPU_data[i][4]*100), (int)(MPU_data[i][5]*100), (int)(MPU_data[i][6]*100) ); // acc with time data
                 //sprintf(uartMsg,"%s,gx:%d,gy:%d,gz:%d", tag_id, (int)(MPU_data[i][4]*10), (int)(MPU_data[i][5]*10), (int)(MPU_data[i][6]*10) ); // gyro data (not visualizing well)
                 UART_write(uartHandle, uartMsg, sizeof(uartMsg));
+                memset(uartMsg, '\0', BUFFER_SIZE);
+                SLEEP(100);
             }
             
             sprintf(uartMsg, "%s,%s", tag_id, session_end_msg);
             UART_write(uartHandle, uartMsg, sizeof(uartMsg));
+            memset(uartMsg, '\0', BUFFER_SIZE);
 
             System_printf("... session ended\n");
             System_flush();
 
-            memset(uartMsg, 0, BUFFER_SIZE);
             currentMessage = DATA_UPLOADED;
             sendDataToBeVisualizedFlag = 0;
         }
@@ -328,9 +334,10 @@ static void uartWriteTask_Fxn(UArg arg0, UArg arg1)
         else if (newBackendMessage == 1) {
             sprintf(uartMsg, "%s,%s%s,%s%s", tag_id, msg1_front, backendMessage1, msg2_front, backendMessage2);
             UART_write(uartHandle, uartMsg, sizeof(uartMsg));
-
-            System_printf("Backend message updated\n");
-            System_flush();
+            memset(uartMsg, '\0', BUFFER_SIZE);
+            
+            //System_printf("Backend message updated\n");
+            //System_flush();
 
             newBackendMessage = 0;
         }
@@ -425,8 +432,8 @@ Void lightSensorTask_Fxn(UArg arg0, UArg arg1)
 {
     double lux;
     double Sleep_Light_Threshold = 5;
-    uint8_t lightLevelBarsPrev = 0;
     uint8_t lightLevelBars = 0;
+    uint8_t lightLevelBarsPrev = 255;
     uint8_t lastSleepState = 0;
 
     I2C_Handle      i2c;
@@ -457,6 +464,7 @@ Void lightSensorTask_Fxn(UArg arg0, UArg arg1)
     System_flush();
 
     I2C_close(i2c);
+    bothI2COpenedFlag = 1;
 
     while (1) {
         if (programState == DETECTING_LIGHT_LEVEL || programState == PLAYING_BACKGROUND_MUSIC) {
@@ -566,7 +574,7 @@ Void mpuSensorTask_Fxn(UArg arg0, UArg arg1)
     I2C_close(i2cMPU);
 
     while (1) {
-        if (programState == READING_MPU_DATA) {
+        if (bothI2COpenedFlag == 1 && programState == READING_MPU_DATA) {
 
             i2cMPU = I2C_open(Board_I2C0, &i2cMPUParams);
             if (i2cMPU == NULL) {
@@ -585,18 +593,17 @@ Void mpuSensorTask_Fxn(UArg arg0, UArg arg1)
 
             if (programState != IDLE_STATE) programState = ANALYSING_DATA;
 
-            // For seeing MPU call freq
+            // For seeing MPU task frequency
             mpu_pc++;
             if (mpu_pc >= 50){
                 float freq = (float)mpu_pc * 1000 / (CURRENT_TIME_MS - mpu_lastPrinted);
                 mpu_lastPrinted = CURRENT_TIME_MS;
 
                 //sprintf(printBuffer, "MPU freq: %.1f Hz\n", freq);
-                sprintf(printBuffer, "Time: %d\n", (int)time);
-                System_printf(printBuffer);
+                //System_printf(printBuffer);
                 System_flush();
+                //printMpuData(MPU_data, MPU_DATA_SPAN);
                 mpu_pc = 0;
-                printMpuData(MPU_data, MPU_DATA_SPAN);
             }
         }
         SLEEP(100);
@@ -648,8 +655,8 @@ Void gestureAnalysisTask_Fxn(UArg arg0, UArg arg1)
                     programState = SENDING_MESSAGE_UART;
 
                 } else {
-                    //programState = DETECTING_LIGHT_LEVEL;
-                    programState = READING_MPU_DATA;
+                    programState = DETECTING_LIGHT_LEVEL;
+                    //programState = READING_MPU_DATA;
                 }
             }
         }
@@ -683,6 +690,7 @@ Void signalTask_Fxn(UArg arg0, UArg arg1)
                 System_printf("Signaling to user with buzzer!\n");
                 System_flush();
                 playSong(buzzerHandle, gesture_detected_signal);
+                //playSong(buzzerHandle, data_uploaded_signal);
             }
 
             if (currentMessage == DEACTIVATED_SM) {
@@ -709,13 +717,13 @@ Void signalTask_Fxn(UArg arg0, UArg arg1)
                     playSong(buzzerHandle, too_full_signal);
                 
                 } else if (currentMessage == DATA_UPLOADED) {
-                    playSong(buzzerHandle, session_completed_signal);
+                    playSong(buzzerHandle, data_uploaded_signal);
                 } 
             }
             currentMessage = NO_MESSAGE;
 
-            //if (programState != IDLE_STATE) programState = DETECTING_LIGHT_LEVEL;
-            if (programState != IDLE_STATE) programState = READING_MPU_DATA;
+            if (programState != IDLE_STATE) programState = DETECTING_LIGHT_LEVEL;
+            //if (programState != IDLE_STATE) programState = READING_MPU_DATA;
         }
         SLEEP(100);
     }
