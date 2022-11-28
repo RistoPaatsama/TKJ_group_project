@@ -1,6 +1,7 @@
 /* C Standard library */
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 
 /* XDCtools files */
 #include <xdc/std.h>
@@ -31,7 +32,7 @@
 
 /* Marcos */
 #define SLEEP(ms)               Task_sleep((ms)*1000 / Clock_tickPeriod)
-#define CURRENT_TIME_MS         (int)((Double)Clock_getTicks() * (Double)Clock_tickPeriod / 1000)
+#define CURRENT_TIME_MS         (int)( (Double)Clock_getTicks() / 100 )
 
 #define MPU_DATA_SPAN           10
 #define SLIDING_MEAN_WINDOW     3
@@ -130,6 +131,7 @@ uint8_t lastCommWasBeepFlag = 1; // tells the program if it sent a command or re
 uint8_t sendDataToBeVisualizedFlag = 0; 
 
 /* Global variables */
+uint32_t beginningClockTicks;
 uint8_t uartBuffer[BUFFER_SIZE];
 char printBuffer[127];
 int16_t commandSentTime = 0;
@@ -138,6 +140,10 @@ int MPU_setup_complete = 0;
 int lightSensor_lastCalled = 0;
 int lightSensor_timeout = 1000;
 int command_sendTime = 0;
+
+char backendMessage1[60];
+char backendMessage2[60];
+uint8_t newBackendMessage = 0; // set to 1 for message 1, and 2 for message 2
 
 int mpu_pc = 0; // these are for observing the hz of the mpu function
 int mpu_lastPrinted = 0;
@@ -251,6 +257,8 @@ static void uartWriteTask_Fxn(UArg arg0, UArg arg1)
 
     char session_start_msg[BUFFER_SIZE] = "session:start";
     char session_end_msg[BUFFER_SIZE] = "session:end";
+    char msg1_front[] = "MSG1:";
+    char msg2_front[] = "MSG2:";
 
     UART_Params_init(&uartParams);
     uartParams.baudRate      = 9600;
@@ -290,7 +298,8 @@ static void uartWriteTask_Fxn(UArg arg0, UArg arg1)
         }
 
         else if (sendDataToBeVisualizedFlag == 1) { // Send data to backend to be visualized
-
+        
+            memset(uartMsg, 0, BUFFER_SIZE);
             sprintf(uartMsg, "%s,%s", tag_id, session_start_msg);
             UART_write(uartHandle, uartMsg, sizeof(uartMsg));
             
@@ -300,7 +309,7 @@ static void uartWriteTask_Fxn(UArg arg0, UArg arg1)
             int i;
             for (i = 0; i < MPU_DATA_SPAN; i++){
                 //sprintf(uartMsg,"%s,ax:%d,ay:%d,az:%d", tag_id, (int)(MPU_data[i][1]*100), (int)(MPU_data[i][2]*100), (int)(MPU_data[i][3]*100) ); // acc data
-                sprintf(uartMsg,"%s,time:%d,ax:%d,ay:%d,az:%d", tag_id, (int)(MPU_data[i][0]/100), (int)(MPU_data[i][1]*100), (int)(MPU_data[i][2]*100), (int)(MPU_data[i][3]*100) ); // acc with time data
+                sprintf(uartMsg,"%s,ax:%d,ay:%d,az:%d", tag_id, (int)(MPU_data[i][0]), (int)(MPU_data[i][1]*100), (int)(MPU_data[i][2]*100), (int)(MPU_data[i][3]*100) ); // acc with time data
                 //sprintf(uartMsg,"%s,gx:%d,gy:%d,gz:%d", tag_id, (int)(MPU_data[i][4]*10), (int)(MPU_data[i][5]*10), (int)(MPU_data[i][6]*10) ); // gyro data (not visualizing well)
                 UART_write(uartHandle, uartMsg, sizeof(uartMsg));
             }
@@ -314,6 +323,16 @@ static void uartWriteTask_Fxn(UArg arg0, UArg arg1)
             memset(uartMsg, 0, BUFFER_SIZE);
             currentMessage = DATA_UPLOADED;
             sendDataToBeVisualizedFlag = 0;
+        }
+
+        else if (newBackendMessage == 1) {
+            sprintf(uartMsg, "%s,%s%s,%s%s", tag_id, msg1_front, backendMessage1, msg2_front, backendMessage2);
+            UART_write(uartHandle, uartMsg, sizeof(uartMsg));
+
+            System_printf("Backend message updated\n");
+            System_flush();
+
+            newBackendMessage = 0;
         }
         SLEEP(100);
     }
@@ -406,6 +425,9 @@ Void lightSensorTask_Fxn(UArg arg0, UArg arg1)
 {
     double lux;
     double Sleep_Light_Threshold = 5;
+    uint8_t lightLevelBarsPrev = 0;
+    uint8_t lightLevelBars = 0;
+    uint8_t lastSleepState = 0;
 
     I2C_Handle      i2c;
     I2C_Params      i2cParams;
@@ -452,9 +474,25 @@ Void lightSensorTask_Fxn(UArg arg0, UArg arg1)
                 }
                 I2C_close(i2c);
 
-                //sprintf(printBuffer, "Light level: %.2f\n", lux);
+                // updating light level indicator
+                lightLevelBars = (uint8_t) (2*(8.5 * pow((lux), (0.15)) - 9) - 1);
+                if (lightLevelBars > 100) lightLevelBars = 0;
+                
+                if (lightLevelBars != lightLevelBarsPrev) {
+                    createLightLevelBar(&backendMessage2, lightLevelBars);
+                    lightLevelBarsPrev = lightLevelBars;
+                    newBackendMessage = 1;
+                }
+
+                //sprintf(printBuffer, "Bars: %d Light level: %.2f\n", lightLevelBars, lux);
                 //System_printf(printBuffer);
                 //System_flush();
+
+                //if (newBackendMessage == 1) {
+                //    sprintf(printBuffer, "msg to backend: %s\n", backendMessage2);
+                //    System_printf(printBuffer);
+                //    System_flush();
+                //}
 
                 lightSensor_lastCalled = CURRENT_TIME_MS;
             }
@@ -463,9 +501,19 @@ Void lightSensorTask_Fxn(UArg arg0, UArg arg1)
             {
                 if ( lux < Sleep_Light_Threshold ) {
                     programState = PLAYING_BACKGROUND_MUSIC;
+                    if (lastSleepState == 1) {
+                        newBackendMessage = 1;
+                        sprintf(backendMessage1, "zzzzzzzzzzzzz");
+                        lastSleepState = 0;
+                    }
                 
                 } else {
                     programState = READING_MPU_DATA;
+                    if (lastSleepState == 0) {
+                        newBackendMessage = 1;
+                        sprintf(backendMessage1, "I'm awake!");
+                        lastSleepState = 1;
+                    }
                 }
             }
         }
@@ -526,6 +574,7 @@ Void mpuSensorTask_Fxn(UArg arg0, UArg arg1)
             }
             mpu9250_get_data(&i2cMPU, &ax, &ay, &az, &gx, &gy, &gz);
             time = CURRENT_TIME_MS;
+            uint32_t ticks = Clock_getTicks() - beginningClockTicks;
             I2C_close(i2cMPU);
 
             //addData(MPU_data_buffer, SLIDING_MEAN_WINDOW, new_data);
@@ -847,6 +896,7 @@ Int main(void) {
 
     BIOS_start();
     programState = defaultStartState;
+    beginningClockTicks = Clock_getTicks();
 
     return (0);
 }
