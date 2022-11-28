@@ -32,7 +32,7 @@
 
 /* Marcos */
 #define SLEEP(ms)               Task_sleep((ms)*1000 / Clock_tickPeriod)
-#define CURRENT_TIME_MS         (int)( (Double)Clock_getTicks() / 100 )
+#define CURRENT_TIME_MS         ((Double)Clock_getTicks() * (Double)Clock_tickPeriod / 1000)
 
 #define MPU_DATA_SPAN           10
 #define SLIDING_MEAN_WINDOW     3
@@ -309,7 +309,7 @@ static void uartWriteTask_Fxn(UArg arg0, UArg arg1)
             int i;
             for (i = 0; i < MPU_DATA_SPAN; i++){
                 //sprintf(uartMsg,"%s,ax:%d,ay:%d,az:%d", tag_id, (int)(MPU_data[i][1]*100), (int)(MPU_data[i][2]*100), (int)(MPU_data[i][3]*100) ); // acc data
-                sprintf(uartMsg,"%s,ax:%d,ay:%d,az:%d", tag_id, (int)(MPU_data[i][0]), (int)(MPU_data[i][1]*100), (int)(MPU_data[i][2]*100), (int)(MPU_data[i][3]*100) ); // acc with time data
+                sprintf(uartMsg,"%s,time:%d,ax:%d,ay:%d,az:%d", tag_id, (int)(MPU_data[i][0]), (int)(MPU_data[i][1]*100), (int)(MPU_data[i][2]*100), (int)(MPU_data[i][3]*100) ); // acc with time data
                 //sprintf(uartMsg,"%s,gx:%d,gy:%d,gz:%d", tag_id, (int)(MPU_data[i][4]*10), (int)(MPU_data[i][5]*10), (int)(MPU_data[i][6]*10) ); // gyro data (not visualizing well)
                 UART_write(uartHandle, uartMsg, sizeof(uartMsg));
             }
@@ -465,7 +465,7 @@ Void lightSensorTask_Fxn(UArg arg0, UArg arg1)
             {
                 i2c = I2C_open(Board_I2C_TMP, &i2cParams);
                 if (i2c == NULL) {
-                    System_abort("Error Initializing I2C\n");
+                    System_abort("OPT3001: Error Initializing I2C\n");
                 }
                 int i;
                 for (i = 0; i < 10; i++){
@@ -570,11 +570,11 @@ Void mpuSensorTask_Fxn(UArg arg0, UArg arg1)
 
             i2cMPU = I2C_open(Board_I2C0, &i2cMPUParams);
             if (i2cMPU == NULL) {
-                System_abort("Error Initializing I2C\n");
+                System_abort("MPU9250: Error Initializing I2C\n");
             }
             mpu9250_get_data(&i2cMPU, &ax, &ay, &az, &gx, &gy, &gz);
             time = CURRENT_TIME_MS;
-            uint32_t ticks = Clock_getTicks() - beginningClockTicks;
+            //uint32_t ticks = Clock_getTicks() - beginningClockTicks;
             I2C_close(i2cMPU);
 
             //addData(MPU_data_buffer, SLIDING_MEAN_WINDOW, new_data);
@@ -591,10 +591,12 @@ Void mpuSensorTask_Fxn(UArg arg0, UArg arg1)
                 float freq = (float)mpu_pc * 1000 / (CURRENT_TIME_MS - mpu_lastPrinted);
                 mpu_lastPrinted = CURRENT_TIME_MS;
 
-                sprintf(printBuffer, "MPU freq: %.1f Hz\n", freq);
+                //sprintf(printBuffer, "MPU freq: %.1f Hz\n", freq);
+                sprintf(printBuffer, "Time: %d\n", (int)time);
                 System_printf(printBuffer);
                 System_flush();
                 mpu_pc = 0;
+                printMpuData(MPU_data, MPU_DATA_SPAN);
             }
         }
         SLEEP(100);
@@ -646,7 +648,8 @@ Void gestureAnalysisTask_Fxn(UArg arg0, UArg arg1)
                     programState = SENDING_MESSAGE_UART;
 
                 } else {
-                    programState = DETECTING_LIGHT_LEVEL;
+                    //programState = DETECTING_LIGHT_LEVEL;
+                    programState = READING_MPU_DATA;
                 }
             }
         }
@@ -711,7 +714,8 @@ Void signalTask_Fxn(UArg arg0, UArg arg1)
             }
             currentMessage = NO_MESSAGE;
 
-            if (programState != IDLE_STATE) programState = DETECTING_LIGHT_LEVEL;
+            //if (programState != IDLE_STATE) programState = DETECTING_LIGHT_LEVEL;
+            if (programState != IDLE_STATE) programState = READING_MPU_DATA;
         }
         SLEEP(100);
     }
