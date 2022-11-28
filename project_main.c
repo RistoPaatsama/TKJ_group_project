@@ -47,8 +47,8 @@
 #define STACKSIZE_UART_WRITE_TASK       2000
 #define STACKSIZE_UART_READ_TASK        512
 #define STACKSIZE_SIGNAL_TASK           512
-#define STACKSIZE_PLAY_BG_SONG_TASK     800
-#define STACKSIZE_PWM_THREAD            400
+#define STACKSIZE_PLAY_BG_SONG_TASK     1024
+#define STACKSIZE_PWM_THREAD            512
 
 Char mpuSensorTask_Stack[ STACKSIZE_MPU_SENSOR_TASK ];
 Char lightSensorTask_Stack[ STACKSIZE_LIGHT_SENSOR_TASK ];
@@ -135,6 +135,7 @@ uint8_t uartInterruptFlag = 0;
 uint8_t pongRecievedFlag = 1;
 uint8_t lastCommWasBeepFlag = 1; // tells the program if it sent a command or recieved a beep last
 uint8_t sendDataToBeVisualizedFlag = 0; 
+uint8_t bothI2COpenedFlag = 0;
 
 /* Global variables */
 uint8_t uartBuffer[BUFFER_SIZE];
@@ -430,7 +431,7 @@ Void lightSensorTask_Fxn(UArg arg0, UArg arg1)
 
     i2c = I2C_open(Board_I2C_TMP, &i2cParams);
     if (i2c == NULL) {
-        System_abort("Error Initializing I2C\n");
+        System_abort("OPT3001: Error Initializing I2C\n");
     }
 
     System_printf("OPT3001: Setting up I2C ...\n");
@@ -443,6 +444,7 @@ Void lightSensorTask_Fxn(UArg arg0, UArg arg1)
     System_flush();
 
     I2C_close(i2c);
+    bothI2COpenedFlag = 1;
 
     while (1) {
         if (programState == DETECTING_LIGHT_LEVEL || programState == PLAYING_BACKGROUND_MUSIC) {
@@ -451,7 +453,7 @@ Void lightSensorTask_Fxn(UArg arg0, UArg arg1)
             {
                 i2c = I2C_open(Board_I2C_TMP, &i2cParams);
                 if (i2c == NULL) {
-                    System_abort("Error Initializing I2C\n");
+                    System_abort("OPT3001: Error Initializing I2C\n");
                 }
                 int i;
                 for (i = 0; i < 10; i++){
@@ -511,7 +513,7 @@ Void mpuSensorTask_Fxn(UArg arg0, UArg arg1)
     // Open MPU I2C channel and setup MPU
     i2cMPU = I2C_open(Board_I2C0, &i2cMPUParams);
     if (i2cMPU == NULL) {
-      System_abort("Error Initializing I2C\n");
+      System_abort("MPU9250: Error Initializing I2C\n");
     }
 
     System_printf("MPU9250: Setup and calibration...\n");
@@ -526,11 +528,11 @@ Void mpuSensorTask_Fxn(UArg arg0, UArg arg1)
     I2C_close(i2cMPU);
 
     while (1) {
-        if (programState == READING_MPU_DATA) {
+        if (bothI2COpenedFlag == 1 && programState == READING_MPU_DATA) {
 
             i2cMPU = I2C_open(Board_I2C0, &i2cMPUParams);
             if (i2cMPU == NULL) {
-                System_abort("Error Initializing I2C\n");
+                System_abort("MPU9250: Error Initializing I2C\n");
             }
             mpu9250_get_data(&i2cMPU, &ax, &ay, &az, &gx, &gy, &gz);
             time = CURRENT_TIME_MS;
@@ -542,7 +544,7 @@ Void mpuSensorTask_Fxn(UArg arg0, UArg arg1)
 
             addMpuData(MPU_data, MPU_DATA_SPAN, time, 10*ax, 10*ay, 10*az, gx, gy, gz);
 
-            if (programState != IDLE_STATE) programState = READING_MPU_DATA;
+            //if (programState != IDLE_STATE) programState = ANALYSING_DATA;
 
             // For seeing MPU call freq
             mpu_pc++;
@@ -709,6 +711,8 @@ Void playBackgroundSongTask_Fxn(UArg arg0, UArg arg1)
 // Task periodically increments the PWM duty for the on board LED.
 Void pwmLEDFxn(UArg arg0, UArg arg1) {
 
+    int pwmCounter = 0;
+
     PWM_Handle pwm1;
     PWM_Params params;
     uint16_t   pwmPeriod = 3000;      // Period and duty in microseconds
@@ -726,16 +730,45 @@ Void pwmLEDFxn(UArg arg0, UArg arg1) {
     }
 
     PWM_start(pwm1);
+    GPIO_write(Board_LED1, Board_LED_ON);
+
+    System_printf("PWM started\n");
+    System_flush();
 
     // Loop forever incrementing the PWM duty
     while (1) {
-        PWM_setDuty(pwm1, duty);
+        if (programState == IDLE_STATE) {
 
-        duty = (duty + dutyInc);
-        if (duty >= pwmPeriod || duty <= 0) {
-            dutyInc = -dutyInc;
+            pwmCounter++;
+            if (pwmCounter >= 2000) {
+                pwmCounter = 0;
+                System_printf("PWM counter reached 2000\n");
+                System_flush();
+            }
+
+            if (duty == 0) {
+                System_printf("Duty is 0\n");
+                System_flush();
+            }
+
+            PWM_setDuty(pwm1, duty);
+
+            duty += dutyInc;
+            if (duty >= pwmPeriod){
+                duty = pwmPeriod;
+                dutyInc = - dutyInc;
+            } else if (duty <= 0) {
+                duty = 0;
+                dutyInc = - dutyInc;
+            }
+
+        } else {
+            if (duty != 0) {
+                duty = 0;
+            }
+            PWM_setDuty(pwm1, duty);
+            if (dutyInc < 0) dutyInc = - dutyInc;
         }
-
         Task_sleep((UInt) arg0);
     }
 }
@@ -841,15 +874,17 @@ Int main(void) {
     }/**/
 
     /* Construct LED PWM Task thread */
-    /*Task_Params_init(&tskParams);
+    Task_Params_init(&tskParams);
     tskParams.stackSize = STACKSIZE_PWM_THREAD;
     tskParams.stack = &tsk0Stack;
     tskParams.arg0 = 50;
-    //tskParams.priority = 1;
+    tskParams.priority = 2;
     Task_construct(&tsk0Struct, (Task_FuncPtr)pwmLEDFxn, &tskParams, NULL);
 
     // Obtain instance handle
-    task = Task_handle(&tsk0Struct);*/
+    task = Task_handle(&tsk0Struct);
+
+    GPIO_write(Board_LED1, Board_LED_OFF);
 
     /* Power pin for MPU */
     MPUPowerPinHandle = PIN_open( &MPUPowerPinState, MPUPowerPinConfig );
@@ -886,6 +921,7 @@ Int main(void) {
       System_abort("Error initializing LED pins\n");
     }
 
+ 
     /* Clock for checking ping timeout */
     Clock_Params_init(&timeoutClock_Params);
     timeoutClock_Params.period = 0;
