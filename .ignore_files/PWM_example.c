@@ -57,16 +57,16 @@ Void pwmLEDFxn(UArg arg0, UArg arg1) {
 
     PWM_Handle pwm1;
     PWM_Params params;
-    uint16_t   pwmPeriod = 3000;      // Period and duty in microseconds
-    uint16_t   duty = 0;
-    uint16_t   dutyInc = 100;
+    uint32_t   pwmPeriod = 3000;      // Period and duty in microseconds
+    uint32_t   duty = 0;
+    uint32_t   dutyInc = 2;
 
     PWM_Params_init(&params);
     params.dutyUnits = PWM_DUTY_US;
     params.dutyValue = 0;
     params.periodUnits = PWM_PERIOD_US;
     params.periodValue = pwmPeriod;
-    pwm1 = PWM_open(Board_PWM0, &params);
+    pwm1 = PWM_open(Board_PWM1, &params);
     if (pwm1 == NULL) {
         System_abort("Board_PWM0 did not open");
     }
@@ -78,7 +78,7 @@ Void pwmLEDFxn(UArg arg0, UArg arg1) {
         PWM_setDuty(pwm1, duty);
 
         duty = (duty + dutyInc);
-        if (duty == pwmPeriod || (!duty)) {
+        if (duty >= pwmPeriod || duty <= 0) {
             dutyInc = -dutyInc;
         }
 
@@ -106,7 +106,7 @@ int main(void)
     task = Task_handle(&tsk0Struct);
 
     /* Turn on user LED */
-    GPIO_write(Board_LED0, Board_LED_ON);
+    //PIN_setOutputValue( Board_LED1, Board_LED1, 1 );
 
     System_printf("Hello world!\n");
     System_flush();
