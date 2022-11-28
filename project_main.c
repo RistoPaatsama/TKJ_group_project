@@ -17,6 +17,8 @@
 #include <ti/drivers/Power.h>
 #include <ti/drivers/power/PowerCC26XX.h>
 #include <ti/drivers/UART.h>
+#include <ti/drivers/GPIO.h>
+#include <ti/drivers/PWM.h>
 
 /* Board Header files */
 #include "Board.h"
@@ -45,7 +47,8 @@
 #define STACKSIZE_UART_WRITE_TASK       2000
 #define STACKSIZE_UART_READ_TASK        512
 #define STACKSIZE_SIGNAL_TASK           512
-#define STACKSIZE_PLAY_BG_SONG_TASK     1024
+#define STACKSIZE_PLAY_BG_SONG_TASK     800
+#define STACKSIZE_PWM_THREAD            400
 
 Char mpuSensorTask_Stack[ STACKSIZE_MPU_SENSOR_TASK ];
 Char lightSensorTask_Stack[ STACKSIZE_LIGHT_SENSOR_TASK ];
@@ -54,6 +57,10 @@ Char uartWriteTask_Stack[ STACKSIZE_UART_WRITE_TASK ];
 Char uartReadTask_Stack[ STACKSIZE_UART_READ_TASK ];
 Char signalTask_Stack[ STACKSIZE_SIGNAL_TASK ];
 Char playBackgroundSongTask_Stack[ STACKSIZE_PLAY_BG_SONG_TASK ];
+
+Task_Struct tsk0Struct;
+UInt8 tsk0Stack[STACKSIZE_PWM_THREAD];
+Task_Handle task;
 
 /* PIN VARIABLES */
 // MPU
@@ -164,7 +171,8 @@ Void timeoutClock_Fxn(UArg arg0)
     Clock_stop(timeoutClock_Handle);
 }
 
-// Right button. Interrupt will trigger on both press and release. 
+// Right button. Toggles state machine and activates easter egg.
+// Interrupt will trigger on both press and release. 
 Void buttonRight_Fxn(PIN_Handle handle, PIN_Id pinId)
 {
     uint_t buttonValue = PIN_getInputValue( pinId );
@@ -175,19 +183,18 @@ Void buttonRight_Fxn(PIN_Handle handle, PIN_Id pinId)
 
         if ( (CURRENT_TIME_MS - buttonRight_PressTime) > 100 )
         {
-
             System_printf("SM activation toggled from state: %d\n", programState);
             System_flush();
 
             if (programState != IDLE_STATE) {
                 programState = IDLE_STATE;
                 currentMessage = DEACTIVATED_SM;
-                PIN_setOutputValue( ledRed_Handle, Board_LED1, 1 );
+                //PIN_setOutputValue( ledRed_Handle, Board_LED1, 1 );
 
             } else {
                 programState = defaultStartState;
                 currentMessage = ACTIVATED_SM;
-                PIN_setOutputValue( ledRed_Handle, Board_LED1, 0 );
+                //PIN_setOutputValue( ledRed_Handle, Board_LED1, 0 );
             }
 
             buttonRight_PressTime = CURRENT_TIME_MS;
@@ -195,7 +202,8 @@ Void buttonRight_Fxn(PIN_Handle handle, PIN_Id pinId)
     }
 }
 
-// Left button. Interrupt will trigger on both press and release. 
+// Left button. Triggers sending of data to backend. 
+// Interrupt will trigger on both press and release. 
 Void buttonLeft_Fxn(PIN_Handle handle, PIN_Id pinId)
 {
     uint_t buttonValue = PIN_getInputValue( pinId );
@@ -534,7 +542,7 @@ Void mpuSensorTask_Fxn(UArg arg0, UArg arg1)
 
             addMpuData(MPU_data, MPU_DATA_SPAN, time, 10*ax, 10*ay, 10*az, gx, gy, gz);
 
-            if (programState != IDLE_STATE) programState = ANALYSING_DATA;
+            if (programState != IDLE_STATE) programState = READING_MPU_DATA;
 
             // For seeing MPU call freq
             mpu_pc++;
@@ -698,6 +706,41 @@ Void playBackgroundSongTask_Fxn(UArg arg0, UArg arg1)
 }
 
 
+// Task periodically increments the PWM duty for the on board LED.
+Void pwmLEDFxn(UArg arg0, UArg arg1) {
+
+    PWM_Handle pwm1;
+    PWM_Params params;
+    uint16_t   pwmPeriod = 3000;      // Period and duty in microseconds
+    uint16_t   duty = 0;
+    uint16_t   dutyInc = 2;
+
+    PWM_Params_init(&params);
+    params.dutyUnits = PWM_DUTY_US;
+    params.dutyValue = 0;
+    params.periodUnits = PWM_PERIOD_US;
+    params.periodValue = pwmPeriod;
+    pwm1 = PWM_open(Board_PWM1, &params);
+    if (pwm1 == NULL) {
+        System_abort("Board_PWM1 did not open");
+    }
+
+    PWM_start(pwm1);
+
+    // Loop forever incrementing the PWM duty
+    while (1) {
+        PWM_setDuty(pwm1, duty);
+
+        duty = (duty + dutyInc);
+        if (duty >= pwmPeriod || duty <= 0) {
+            dutyInc = -dutyInc;
+        }
+
+        Task_sleep((UInt) arg0);
+    }
+}
+
+
 /* MAIN */
 Int main(void) {
 
@@ -723,11 +766,15 @@ Int main(void) {
     Task_Handle playBackgroundSongTask_Handle;
     Task_Params playBackgroundSongTask_Params;
 
+    Task_Params tskParams;
+
     // Initialize board
     Board_initGeneral();
     Init6LoWPAN();
     Board_initI2C();
     Board_initUART();
+    Board_initGPIO();
+    Board_initPWM();
 
     /* Initializing Tasks */
     
@@ -784,7 +831,6 @@ Int main(void) {
         System_abort("signalTask create failed!");
     }
 
-    
     Task_Params_init(&playBackgroundSongTask_Params);
     playBackgroundSongTask_Params.stackSize = STACKSIZE_PLAY_BG_SONG_TASK;
     playBackgroundSongTask_Params.stack = &playBackgroundSongTask_Stack;
@@ -792,8 +838,18 @@ Int main(void) {
     playBackgroundSongTask_Handle = Task_create(playBackgroundSongTask_Fxn, &playBackgroundSongTask_Params, NULL);
     if (playBackgroundSongTask_Handle == NULL) {
         System_abort("playBackgroundSongTask create failed!");
-    }
+    }/**/
 
+    /* Construct LED PWM Task thread */
+    /*Task_Params_init(&tskParams);
+    tskParams.stackSize = STACKSIZE_PWM_THREAD;
+    tskParams.stack = &tsk0Stack;
+    tskParams.arg0 = 50;
+    //tskParams.priority = 1;
+    Task_construct(&tsk0Struct, (Task_FuncPtr)pwmLEDFxn, &tskParams, NULL);
+
+    // Obtain instance handle
+    task = Task_handle(&tsk0Struct);*/
 
     /* Power pin for MPU */
     MPUPowerPinHandle = PIN_open( &MPUPowerPinState, MPUPowerPinConfig );
