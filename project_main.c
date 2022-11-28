@@ -126,8 +126,6 @@ enum gesture currentGesture = NO_GESTURE;
 enum message { NO_MESSAGE=0, TOO_FULL, LOW_HEALTH, DEATH, NO_PONG_RECIEVED, DEACTIVATED_SM, ACTIVATED_SM, DATA_UPLOADED, TETRIS, WON };
 enum message currentMessage = NO_MESSAGE;
 
-enum easteregg { NO_EASTEREGG = 0, EASTER_EGG, LOTTERY};
-enum easteregg currentEasteregg = NO_EASTEREGG;
 
 /* Global flags */
 uint8_t uartInterruptFlag = 0;
@@ -183,9 +181,9 @@ Void buttonRight_Fxn(PIN_Handle handle, PIN_Id pinId)
     uint_t buttonValue = PIN_getInputValue( pinId );
     if (buttonValue) { // button released
         // Nothing
-        if ((CURRENT_TIME_MS - buttonRight_PressTime) > 3000 && eastereggCompleted == 0)
+        if ((CURRENT_TIME_MS - buttonRight_PressTime) > 1000 && eastereggCompleted == 0)
         {
-            currentEasteregg = EASTER_EGG;
+            eastereggStarted = 1;
             currentMessage = TETRIS;
 
         }
@@ -320,7 +318,7 @@ static void uartWriteTask_Fxn(UArg arg0, UArg arg1)
             int i;
             for (i = 0; i < MPU_DATA_SPAN; i++){
                 //sprintf(uartMsg,"%s,ax:%d,ay:%d,az:%d", tag_id, (int)(MPU_data[i][1]*100), (int)(MPU_data[i][2]*100), (int)(MPU_data[i][3]*100) ); // acc data
-                sprintf(uartMsg,"%s,time:%d,ax:%d,ay:%d,az:%d", tag_id, (int)(MPU_data[i][0]/100), (int)(MPU_data[i][1]*100), (int)(MPU_data[i][2]*100), (int)(MPU_data[i][3]*100) ); // acc with time data
+                sprintf(uartMsg,"%s,time:%d,ax:%d,ay:%d,az:%d", tag_id, (int)(MPU_data[i][0]/1), (int)(MPU_data[i][1]*100), (int)(MPU_data[i][2]*100), (int)(MPU_data[i][3]*100) ); // acc with time data
                 //sprintf(uartMsg,"%s,gx:%d,gy:%d,gz:%d", tag_id, (int)(MPU_data[i][4]*10), (int)(MPU_data[i][5]*10), (int)(MPU_data[i][6]*10) ); // gyro data (not visualizing well)
                 UART_write(uartHandle, uartMsg, sizeof(uartMsg));
             }
@@ -458,7 +456,7 @@ Void lightSensorTask_Fxn(UArg arg0, UArg arg1)
     System_flush();
 
     SLEEP(100);
-    bmp280_setup(&i2c);
+    bmp280_setup(&i2c); 
 
     System_printf("BMP280: Setup OK\n");
     System_flush();
@@ -481,6 +479,7 @@ Void lightSensorTask_Fxn(UArg arg0, UArg arg1)
                 }
                 I2C_close(i2c);
 
+                SLEEP(100);
                 //sprintf(printBuffer, "Light level: %.2f\n", lux);
                 //System_printf(printBuffer);
                 //System_flush();
@@ -499,7 +498,7 @@ Void lightSensorTask_Fxn(UArg arg0, UArg arg1)
                 }
             }
          }
-         if (currentEasteregg != NO_EASTEREGG && eastereggStarted == 1) {
+         if (eastereggStarted == 1 && programState != PLAYING_BACKGROUND_MUSIC) { //currentEasteregg != NO_EASTEREGG && eastereggStarted == 1
              i2c = I2C_open(Board_I2C_TMP, &i2cParams);
              if (i2c == NULL) {
                  System_abort("BMP280: Error Initializing I2C\n");
@@ -508,6 +507,7 @@ Void lightSensorTask_Fxn(UArg arg0, UArg arg1)
              bmp280_get_data(&i2c, &pressure, &temp_comp);
 
              I2C_close(i2c);
+             SLEEP(100);
 
              /*sprintf(printBuffer, "Light level: %.2f\n", pressure);
              System_printf(printBuffer);
@@ -518,10 +518,10 @@ Void lightSensorTask_Fxn(UArg arg0, UArg arg1)
                      eastereggStarted = 0;
                      eastereggCompleted = 1;
                  }
-                 currentEasteregg = LOTTERY;
                  currentMessage = WON;
                  cheatingFlag = 1;
              }
+
          }
         SLEEP(50);
     }
@@ -771,10 +771,10 @@ Void signalTask_Fxn(UArg arg0, UArg arg1)
                 
                 } else if (currentMessage == DATA_UPLOADED) {
                     playSong(buzzerHandle, session_completed_signal);
+
                 } else if (currentMessage == TETRIS) {
                     programState = IDLE_STATE;
                     playSong(buzzerHandle, tetris_theme_song);
-                    eastereggStarted = 1;
                     programState = defaultStartState;
                 }
                 else if (currentMessage == WON) {
@@ -815,7 +815,7 @@ Void playBackgroundSongTask_Fxn(UArg arg0, UArg arg1)
             playSongInterruptible(buzzerHandle, lullaby, &programState, PLAYING_BACKGROUND_MUSIC);
             //playSong(buzzerHandle, lullaby);
             
-            //if (programState != IDLE_STATE) programState = READING_MPU_DATA;
+            if (programState != IDLE_STATE) programState = READING_MPU_DATA;
         }
         SLEEP(50);
     }
