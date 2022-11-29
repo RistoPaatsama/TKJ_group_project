@@ -183,7 +183,7 @@ Void buttonRight_Fxn(PIN_Handle handle, PIN_Id pinId)
         if (rightButtonPressed && buttonValue) { // button released
             rightButtonPressed = 0;
             
-            if ((CURRENT_TIME_MS - buttonRight_PressTime) > 1000 && eastereggCompleted == 0)
+            if ((CURRENT_TIME_MS - buttonRight_PressTime) > 1000) 
             {
                 eastereggStarted = 1;
                 currentMessage = TETRIS;
@@ -301,15 +301,21 @@ static void uartWriteTask_Fxn(UArg arg0, UArg arg1)
             } else if (currentGesture == CHEATING) {
                 sprintf(uartMsg, "%s,%s,ping", tag_id, msg[4]);
             }
-            System_printf("Sending uart message: %s\n", uartMsg);
-            System_flush();
+            //System_printf("Sending uart message: %s\n", uartMsg);
+            //System_flush();
             UART_write(uartHandle, uartMsg, sizeof(uartMsg));
             Clock_start(timeoutClock_Handle); // timeout clock for checking pong
             pongRecievedFlag = 0;
             command_sendTime = CURRENT_TIME_MS;
 
             memset(uartMsg, 0, BUFFER_SIZE);
-            if (programState != IDLE_STATE) programState = SIGNALLING_TO_USER;
+            if (programState != IDLE_STATE) {
+                if (currentGesture != CHEATING) {
+                    programState = SIGNALLING_TO_USER;
+                } else {
+                    programState = DETECTING_LIGHT_LEVEL;
+                }
+            } 
         }
 
         else if (sendDataToBeVisualizedFlag == 1) { // Send data to backend to be visualized
@@ -540,8 +546,9 @@ Void lightSensorTask_Fxn(UArg arg0, UArg arg1)
             SLEEP(100);
 
             if (pressure > pressureThreshold) {
-                if (cheatsUsed == 1) {
+                if (cheatsUsed >= 1) {
                     eastereggStarted = 0;
+                    cheatsUsed = 0;
                     //eastereggCompleted = 1;
                 }
                 currentMessage = WON;
@@ -549,11 +556,11 @@ Void lightSensorTask_Fxn(UArg arg0, UArg arg1)
             }
 
             pressureCounter++;
-            if (pressureCounter >= 10) {
+            if (pressureCounter >= 15) {
                 pressureCounter = 0;
-                sprintf(printBuffer, "Pressure level: %d, average pressure: %d, diff: %d\n", (int)pressure, (int)averagePressure, (int)(pressureThreshold-pressure));
-                System_printf(printBuffer);
-                System_flush();
+                //sprintf(printBuffer, "Pressure level: %d, average pressure: %d, diff: %d\n", (int)pressure, (int)averagePressure, (int)(pressureThreshold-pressure));
+                //System_printf(printBuffer);
+                //System_flush();
             }
         }
         SLEEP(50);
@@ -726,19 +733,15 @@ Void signalTask_Fxn(UArg arg0, UArg arg1)
         if (programState == SIGNALLING_TO_USER || (currentMessage != NO_MESSAGE) ) { 
 
             if (programState == SIGNALLING_TO_USER) {
-                System_printf("Signaling to user with buzzer!\n");
-                System_flush();
+                //System_printf("Signaling to user with buzzer!\n");
+                //System_flush();
                 playSong(buzzerHandle, gesture_detected_signal);
             }
 
             if (currentMessage == DEACTIVATED_SM) {
                 playSong(buzzerHandle, deactivate_signal);
-                System_printf("SM Deactivated\n");
-                System_flush();
             } else if (currentMessage == ACTIVATED_SM) {
                 playSong(buzzerHandle, activate_signal);
-                System_printf("SM Activated\n");
-                System_flush();
             }
             
             if ( (programState != IDLE_STATE) && (programState != PLAYING_BACKGROUND_MUSIC) ) { // prevent signalling when SM deactivated
@@ -758,6 +761,8 @@ Void signalTask_Fxn(UArg arg0, UArg arg1)
                     playSong(buzzerHandle, data_uploaded_signal);
 
                 } else if (currentMessage == TETRIS) {
+                    System_printf("Playing Tetris!\n");
+                    System_flush();
                     programState = IDLE_STATE;
                     playSong(buzzerHandle, tetris_theme_song);
                     programState = defaultStartState;
