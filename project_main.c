@@ -720,7 +720,7 @@ Void signalTask_Fxn(UArg arg0, UArg arg1)
                     playSong(buzzerHandle, too_full_signal);
                 
                 } else if (currentMessage == DATA_UPLOADED) {
-                    playSong(buzzerHandle, session_completed_signal);
+                    playSong(buzzerHandle, data_uploaded_signal);
 
                 } else if (currentMessage == TETRIS) {
                     programState = IDLE_STATE;

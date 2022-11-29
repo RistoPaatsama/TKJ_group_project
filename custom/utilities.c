@@ -78,3 +78,38 @@ int stringContainsAt(char *str, char *sub, int i)
 
     return 1;
 }
+
+/* 
+ * Will create a "graphical" light level bar to be shown as backend message.
+ * bars go from 0 to 20. Will also show percentage after bar. 
+*/
+void createLightLevelBar(char *str, uint8_t bars) {
+    char *ptr = str;
+    char front[] = "Light level:  ";
+    char back[6];
+    int i, perc;
+    
+    for (i = 0; i < strlen(front); i++){
+        *ptr = front[i];
+        if (*ptr != '\0') ptr++;
+    }
+    for (i = 0; i < 20; i++) {
+        if (i < bars) {
+            *ptr++ = '#';
+        } else {
+            *ptr++ = '_';
+        }
+    }
+    *ptr++ = ' ';
+    *ptr++ = ' ';
+    *ptr++ = ' ';
+    perc = bars * 5;
+    if (perc > 100) perc = 100;
+
+    sprintf(back, "%d%%", perc);
+
+    for (i = 0; i < strlen(back); i++) {
+        *ptr++ = back[i];
+    }
+    *ptr = '\0';
+}

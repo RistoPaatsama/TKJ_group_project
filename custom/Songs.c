@@ -86,27 +86,66 @@ const uint16_t low_battery_signal[] = {
 };
 
 
-const uint16_t session_completed_signal[] = {
-    (450 / 4) << 8 | 19 ,
-6 << 12 | OCT_7 | EIGHTHS_NOTE,
-1 << 12 | OCT_6 | EIGHTHS_NOTE,
-8 << 12 | OCT_6 | EIGHTHS_NOTE,
-10 << 12 | OCT_7 | EIGHTHS_NOTE,
-5 << 12 | OCT_7 | EIGHTHS_NOTE,
-0 << 12 | OCT_6 | EIGHTHS_NOTE,
-2 << 12 | OCT_7 | EIGHTHS_NOTE,
-9 << 12 | OCT_7 | EIGHTHS_NOTE,
-4 << 12 | OCT_7 | EIGHTHS_NOTE,
-6 << 12 | OCT_8 | EIGHTHS_NOTE,
-1 << 12 | OCT_7 | EIGHTHS_NOTE,
-8 << 12 | OCT_7 | EIGHTHS_NOTE,
-10 << 12 | OCT_8 | EIGHTHS_NOTE,
-5 << 12 | OCT_8 | EIGHTHS_NOTE,
-0 << 12 | OCT_7 | EIGHTHS_NOTE,
-2 << 12 | OCT_8 | EIGHTHS_NOTE,
-9 << 12 | OCT_8 | EIGHTHS_NOTE,
-4 << 12 | OCT_8 | EIGHTHS_NOTE,
-REST | HALF_NOTE
+const uint16_t data_uploaded_signal[] = {
+        (350 / 4) << 8 | 17 ,
+        6 << 12 | OCT_6 | EIGHTHS_NOTE,
+        11 << 12 | OCT_6 | EIGHTHS_NOTE,
+        4 << 12 | OCT_7 | EIGHTHS_NOTE,
+        9 << 12 | OCT_7 | EIGHTHS_NOTE,
+        10 << 12 | OCT_6 | EIGHTHS_NOTE,
+        3 << 12 | OCT_7 | EIGHTHS_NOTE,
+        8 << 12 | OCT_7 | EIGHTHS_NOTE,
+        1 << 12 | OCT_7 | EIGHTHS_NOTE,
+        2 << 12 | OCT_6 | EIGHTHS_NOTE,
+        7 << 12 | OCT_7 | EIGHTHS_NOTE,
+        0 << 12 | OCT_7 | EIGHTHS_NOTE,
+        5 << 12 | OCT_8 | EIGHTHS_NOTE,
+        6 << 12 | OCT_7 | EIGHTHS_NOTE,
+        11 << 12 | OCT_7 | EIGHTHS_NOTE,
+        4 << 12 | OCT_8 | EIGHTHS_NOTE,
+        9 << 12 | OCT_8 | EIGHTHS_NOTE,
+        REST | HALF_NOTE
+};
+
+
+const uint16_t winning_signal[] = {
+            (540 / 4) << 8 | 33,
+            NOTE_D	| OCT_6 | EIGHTHS_NOTE,
+            NOTE_E		    | EIGHTHS_NOTE,
+            NOTE_FS		    | EIGHTHS_NOTE,
+            NOTE_GS		    | EIGHTHS_NOTE,
+            NOTE_A          | EIGHTHS_NOTE,
+            NOTE_B		    | EIGHTHS_NOTE,
+            NOTE_CS	| OCT_7 | EIGHTHS_NOTE,
+            NOTE_D		    | EIGHTHS_NOTE,
+
+            NOTE_D	| OCT_6 | EIGHTHS_NOTE,
+            NOTE_E		    | EIGHTHS_NOTE,
+            NOTE_FS		    | EIGHTHS_NOTE,
+            NOTE_GS		    | EIGHTHS_NOTE,
+            NOTE_A          | EIGHTHS_NOTE,
+            NOTE_B		    | EIGHTHS_NOTE,
+            NOTE_CS	| OCT_7 | EIGHTHS_NOTE,
+            NOTE_D		    | EIGHTHS_NOTE,
+
+            NOTE_D	| OCT_6 | EIGHTHS_NOTE,
+            NOTE_E		    | EIGHTHS_NOTE,
+            NOTE_FS		    | EIGHTHS_NOTE,
+            NOTE_GS		    | EIGHTHS_NOTE,
+            NOTE_A          | EIGHTHS_NOTE,
+            NOTE_B		    | EIGHTHS_NOTE,
+            NOTE_CS	| OCT_7 | EIGHTHS_NOTE,
+            NOTE_D		    | EIGHTHS_NOTE,
+
+            NOTE_D	| OCT_6 | EIGHTHS_NOTE,
+            NOTE_E		    | EIGHTHS_NOTE,
+            NOTE_FS		    | EIGHTHS_NOTE,
+            NOTE_GS		    | EIGHTHS_NOTE,
+            NOTE_A          | EIGHTHS_NOTE,
+            NOTE_B		    | EIGHTHS_NOTE,
+            NOTE_CS	| OCT_7 | EIGHTHS_NOTE,
+            NOTE_D		    | EIGHTHS_NOTE,
+            REST            | WHOLE_NOTE
 };
 
 
@@ -195,7 +234,7 @@ const uint16_t lazer_beams[] = {
 
 /* Songs of old programs, long forgotten memories, bits dispersed, trampled by the neverending march of progress */
 const uint16_t sounds_of_freed_memory[] = {
-                                              (180/4) << 8 | 40
+                                              (500/4) << 8 | 100
 };
 
 
@@ -457,43 +496,4 @@ const uint16_t mary_had_a_little_lamb[] = {
                                      NOTE_E |  QUARTER_NOTE | 2,
                                      NOTE_D |  QUARTER_NOTE | 2,
                                      NOTE_C | HALF_NOTE | 2
-};
-const uint16_t winning_signal[] = {
-            (540 / 4) << 8 | 33,
-            NOTE_D  | OCT_6 | EIGHTHS_NOTE,
-            NOTE_E        | EIGHTHS_NOTE,
-            NOTE_FS        | EIGHTHS_NOTE,
-            NOTE_GS        | EIGHTHS_NOTE,
-            NOTE_A          | EIGHTHS_NOTE,
-            NOTE_B        | EIGHTHS_NOTE,
-            NOTE_CS  | OCT_7 | EIGHTHS_NOTE,
-            NOTE_D        | EIGHTHS_NOTE,
-
-            NOTE_D  | OCT_6 | EIGHTHS_NOTE,
-            NOTE_E        | EIGHTHS_NOTE,
-            NOTE_FS        | EIGHTHS_NOTE,
-            NOTE_GS        | EIGHTHS_NOTE,
-            NOTE_A          | EIGHTHS_NOTE,
-            NOTE_B        | EIGHTHS_NOTE,
-            NOTE_CS  | OCT_7 | EIGHTHS_NOTE,
-            NOTE_D        | EIGHTHS_NOTE,
-
-            NOTE_D  | OCT_6 | EIGHTHS_NOTE,
-            NOTE_E        | EIGHTHS_NOTE,
-            NOTE_FS        | EIGHTHS_NOTE,
-            NOTE_GS        | EIGHTHS_NOTE,
-            NOTE_A          | EIGHTHS_NOTE,
-            NOTE_B        | EIGHTHS_NOTE,
-            NOTE_CS  | OCT_7 | EIGHTHS_NOTE,
-            NOTE_D        | EIGHTHS_NOTE,
-
-            NOTE_D  | OCT_6 | EIGHTHS_NOTE,
-            NOTE_E        | EIGHTHS_NOTE,
-            NOTE_FS        | EIGHTHS_NOTE,
-            NOTE_GS        | EIGHTHS_NOTE,
-            NOTE_A          | EIGHTHS_NOTE,
-            NOTE_B        | EIGHTHS_NOTE,
-            NOTE_CS  | OCT_7 | EIGHTHS_NOTE,
-            NOTE_D        | EIGHTHS_NOTE,
-            REST            | WHOLE_NOTE
 };
