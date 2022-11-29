@@ -31,13 +31,12 @@
 
 /* Marcos */
 #define SLEEP(ms)               Task_sleep((ms)*1000 / Clock_tickPeriod)
-#define CURRENT_TIME_MS         (int)((Double)Clock_getTicks() * (Double)Clock_tickPeriod / 1000)
+#define CURRENT_TIME_MS         ((Double)Clock_getTicks() * (Double)Clock_tickPeriod / 1000)
 
 #define MPU_DATA_SPAN           10
 #define SLIDING_MEAN_WINDOW     3
 #define BUFFER_SIZE             80
 #define MESSAGE_COUNT           10
-#define CHEAT_VALUE             111300
 
 /* Task stacks */
 #define STACKSIZE_MPU_SENSOR_TASK       1500
@@ -135,12 +134,15 @@ uint8_t cheatsUsed = 0;
 uint8_t eastereggStarted = 0;
 uint8_t cheatingFlag = 0;
 
+uint8_t rightButtonPressed = 0;
+uint8_t leftButtonPressed = 0;
+
 
 /* Global variables */
 uint8_t uartBuffer[BUFFER_SIZE];
 char printBuffer[127];
 int16_t commandSentTime = 0;
-float buttonRight_PressTime = 0.0;
+double buttonRight_PressTime = 0.0;
 int MPU_setup_complete = 0;
 int lightSensor_lastCalled = 0;
 int lightSensor_timeout = 1000;
@@ -152,9 +154,6 @@ int mpu_lastPrinted = 0;
 /* DATA */
 float MPU_data[MPU_DATA_SPAN][7];
 float MPU_data_buffer[SLIDING_MEAN_WINDOW][7];
-
-double pressure;
-double temp_comp;
 
 /* INTERRUPT HANDLERS */
 
@@ -178,36 +177,42 @@ Void timeoutClock_Fxn(UArg arg0)
 // Long press: Activate easter egg
 Void buttonRight_Fxn(PIN_Handle handle, PIN_Id pinId)
 {
-    uint_t buttonValue = PIN_getInputValue( pinId );
-    if (buttonValue) { // button released
-        // Nothing
-        if ((CURRENT_TIME_MS - buttonRight_PressTime) > 1000 && eastereggCompleted == 0)
-        {
-            eastereggStarted = 1;
-            currentMessage = TETRIS;
-
-        }
-        else {
-            System_printf("SM activation toggled from state: %d\n", programState);
-            System_flush();
-
-            if (programState != IDLE_STATE) {
-                programState = IDLE_STATE;
-                currentMessage = DEACTIVATED_SM;
-                PIN_setOutputValue(ledRed_Handle, Board_LED1, 1);
+    if (CURRENT_TIME_MS > 2000)
+    {
+        uint_t buttonValue = PIN_getInputValue( pinId );
+        if (rightButtonPressed && buttonValue) { // button released
+            rightButtonPressed = 0;
+            
+            if ((CURRENT_TIME_MS - buttonRight_PressTime) > 1000 && eastereggCompleted == 0)
+            {
+                eastereggStarted = 1;
+                currentMessage = TETRIS;
 
             }
             else {
-                programState = defaultStartState;
-                currentMessage = ACTIVATED_SM;
-                PIN_setOutputValue(ledRed_Handle, Board_LED1, 0);
+                System_printf("SM activation toggled from state: %d\n", programState);
+                System_flush();
+
+                if (programState != IDLE_STATE) {
+                    programState = IDLE_STATE;
+                    currentMessage = DEACTIVATED_SM;
+                    PIN_setOutputValue(ledRed_Handle, Board_LED1, 1);
+
+                }
+                else {
+                    programState = defaultStartState;
+                    currentMessage = ACTIVATED_SM;
+                    PIN_setOutputValue(ledRed_Handle, Board_LED1, 0);
+                }
             }
+
+        } else { // button pushed
+            if ( (CURRENT_TIME_MS - buttonRight_PressTime) > 100 ) {
+                rightButtonPressed = 1;
+                buttonRight_PressTime = CURRENT_TIME_MS;
+            }
+
         }
-
-    } else { // button pushed
-
-        buttonRight_PressTime = CURRENT_TIME_MS;
-
     }
 }
 
@@ -425,6 +430,13 @@ Void lightSensorTask_Fxn(UArg arg0, UArg arg1)
     double lux;
     double Sleep_Light_Threshold = 5;
 
+    double pressureDiffThreshold = 200;
+    double averagePressure;
+    double pressureThreshold;
+    double pressure;
+    double temp_comp;
+    int pressureCounter = 0; // for debugging purposes
+
     I2C_Handle      i2c;
     I2C_Params      i2cParams;
 
@@ -456,9 +468,26 @@ Void lightSensorTask_Fxn(UArg arg0, UArg arg1)
     System_flush();
 
     SLEEP(100);
-    bmp280_setup(&i2c); 
+    bmp280_setup(&i2c);
 
-    System_printf("BMP280: Setup OK\n");
+    // calculate average pressure
+    int i;
+    for (i = 0; i < 1; i++) {
+        bmp280_get_data(&i2c, &pressure, &temp_comp); // first reading(s) is/are bad for some reason
+        SLEEP(100);
+    }
+    for (i = 0; i < 5; i++) {
+        bmp280_get_data(&i2c, &pressure, &temp_comp);
+        averagePressure += pressure;
+        SLEEP(100);
+        //sprintf(printBuffer, "(Finding average pressure) Pressure level: %d\n", (int)pressure);
+        //System_printf(printBuffer);
+        //System_flush();
+    }
+    averagePressure = averagePressure / i;
+    pressureThreshold = averagePressure + pressureDiffThreshold;
+
+    System_printf("BMP280: Setup OK and average pressure found\n");
     System_flush();
     I2C_close(i2c);
 
@@ -478,8 +507,8 @@ Void lightSensorTask_Fxn(UArg arg0, UArg arg1)
                     if (lux != -1) break;
                 }
                 I2C_close(i2c);
-
                 SLEEP(100);
+
                 //sprintf(printBuffer, "Light level: %.2f\n", lux);
                 //System_printf(printBuffer);
                 //System_flush();
@@ -499,6 +528,7 @@ Void lightSensorTask_Fxn(UArg arg0, UArg arg1)
             }
         }
         if (eastereggStarted == 1 && programState != PLAYING_BACKGROUND_MUSIC) { //currentEasteregg != NO_EASTEREGG && eastereggStarted == 1
+        
             i2c = I2C_open(Board_I2C_TMP, &i2cParams);
             if (i2c == NULL) {
                 System_abort("BMP280: Error Initializing I2C\n");
@@ -509,11 +539,7 @@ Void lightSensorTask_Fxn(UArg arg0, UArg arg1)
             I2C_close(i2c);
             SLEEP(100);
 
-            /*sprintf(printBuffer, "Light level: %.2f\n", pressure);
-            System_printf(printBuffer);
-            System_flush();*/
-
-            if (pressure > CHEAT_VALUE ) {
+            if (pressure > pressureThreshold) {
                 if (cheatsUsed == 1) {
                     eastereggStarted = 0;
                     //eastereggCompleted = 1;
@@ -521,7 +547,15 @@ Void lightSensorTask_Fxn(UArg arg0, UArg arg1)
                 currentMessage = WON;
                 cheatingFlag = 1;
             }
-         }
+
+            pressureCounter++;
+            if (pressureCounter >= 10) {
+                pressureCounter = 0;
+                sprintf(printBuffer, "Pressure level: %d, average pressure: %d, diff: %d\n", (int)pressure, (int)averagePressure, (int)(pressureThreshold-pressure));
+                System_printf(printBuffer);
+                System_flush();
+            }
+        }
         SLEEP(50);
     }
 }
@@ -595,9 +629,10 @@ Void mpuSensorTask_Fxn(UArg arg0, UArg arg1)
                 float freq = (float)mpu_pc * 1000 / (CURRENT_TIME_MS - mpu_lastPrinted);
                 mpu_lastPrinted = CURRENT_TIME_MS;
 
-                sprintf(printBuffer, "MPU freq: %.1f Hz\n", freq);
-                System_printf(printBuffer);
-                System_flush();
+                //sprintf(printBuffer, "MPU freq: %.1f Hz\n", freq);
+                //System_printf(printBuffer);
+                //System_flush();
+                //printMpuData(MPU_data, MPU_DATA_SPAN);
                 mpu_pc = 0;
             }
         }
