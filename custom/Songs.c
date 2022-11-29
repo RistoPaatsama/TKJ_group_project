@@ -300,7 +300,7 @@ const uint16_t lullaby[] = {
 
 /* TETRIS THEME SONG! */
 const uint16_t tetris_theme_song[] = {
-                                   (320/4) << 8       | 81, // left 8 is BMP/4, right 8 is number if notes
+                                   (320/4) << 8       | 39, // left 8 is BMP/4, right 8 is number if notes
 
                                 NOTE_E | OCT_6  | HALF_NOTE     | 1,
                                 NOTE_B | OCT_5  | QUARTER_NOTE  | 1,

@@ -41,7 +41,7 @@
 
 /* Task stacks */
 #define STACKSIZE_MPU_SENSOR_TASK       1500
-#define STACKSIZE_LIGHT_SENSOR_TASK     1025
+#define STACKSIZE_SENSOR_TASK     1025
 #define STACKSIZE_GESTURE_SENSOR_TASK   512
 #define STACKSIZE_UART_WRITE_TASK       2000
 #define STACKSIZE_UART_READ_TASK        512
@@ -49,7 +49,7 @@
 #define STACKSIZE_PLAY_BG_SONG_TASK     1024
 
 Char mpuSensorTask_Stack[ STACKSIZE_MPU_SENSOR_TASK ];
-Char lightSensorTask_Stack[ STACKSIZE_LIGHT_SENSOR_TASK ];
+Char sensorTask_Stack[ STACKSIZE_SENSOR_TASK ];
 Char gestureAnalysisTask_Stack[ STACKSIZE_GESTURE_SENSOR_TASK ];
 Char uartWriteTask_Stack[ STACKSIZE_UART_WRITE_TASK ];
 Char uartReadTask_Stack[ STACKSIZE_UART_READ_TASK ];
@@ -110,6 +110,10 @@ PIN_Config ledRed_Config[] = {
 static Clock_Handle timeoutClock_Handle;
 static Clock_Params timeoutClock_Params;
 
+// timeout Clock
+static Clock_Handle longPressClock_Handle;
+static Clock_Params longPressClock_Params;
+
 
 /* Enums for State and Gesture */
 enum state { IDLE_STATE=0, READING_MPU_DATA, DETECTING_LIGHT_LEVEL, ANALYSING_DATA, SENDING_MESSAGE_UART, SIGNALLING_TO_USER,
@@ -134,9 +138,11 @@ uint8_t sendDataToBeVisualizedFlag = 0;
 uint8_t cheatsUsed = 0;
 uint8_t eastereggStarted = 0;
 uint8_t cheatingFlag = 0;
+uint8_t cheatMessageSending = 0; // To prevent cheatsUsed from incrementing before message has been sent
 
 uint8_t rightButtonPressed = 0;
 uint8_t leftButtonPressed = 0;
+uint8_t rightButtonLongPressHappened = 0; // Set in clock interrupt
 
 
 /* Global variables */
@@ -155,6 +161,7 @@ uint8_t newBackendMessage = 0; // set to 1 for message 1, and 2 for message 2
 float MPU_data[MPU_DATA_SPAN][7];
 float MPU_data_buffer[SLIDING_MEAN_WINDOW][7];
 
+
 /* INTERRUPT HANDLERS */
 
 static void uartFxn(UART_Handle handle, void *rxBuf, size_t len) 
@@ -172,65 +179,91 @@ Void timeoutClock_Fxn(UArg arg0)
     Clock_stop(timeoutClock_Handle);
 }
 
+/* Functions for right button functionality */
+
+// Long press for right button. Activate Tetris and Easter Egg
+void rightButtonLongPress() {
+    if (!eastereggStarted && programState != IDLE_STATE) {
+        eastereggStarted = 1;
+        currentMessage = TETRIS;
+    } else {
+        System_printf("Unable to play Tetris\n");
+        System_flush();
+    }
+}
+
+// Short press for right button. Toggle state machine
+void rightButtonShortPress() {
+    System_printf("SM activation toggled from state: %d\n", programState);
+    System_flush();
+
+    if (programState != IDLE_STATE) {
+        programState = IDLE_STATE;
+        currentMessage = DEACTIVATED_SM;
+        PIN_setOutputValue(ledRed_Handle, Board_LED1, 1);
+
+    }
+    else {
+        programState = defaultStartState;
+        currentMessage = ACTIVATED_SM;
+        PIN_setOutputValue(ledRed_Handle, Board_LED1, 0);
+    }
+}
+
+// Long press interrupt for gith button. Long press activates Tetris and easter egg. 
+Void longPressClock_Fxn(UArg arg0)
+{
+    if (rightButtonPressed) {
+        rightButtonLongPressHappened = 1;
+        //System_printf("Long press detected\n");
+        //System_flush();
+        rightButtonLongPress();
+    }
+    Clock_stop(longPressClock_Handle);
+}
+
 // Right button. 
-// Short press: Toggle SM
-// Long press: Activate easter egg
 Void buttonRight_Fxn(PIN_Handle handle, PIN_Id pinId)
 {
-    if (CURRENT_TIME_MS > 2000)
+    if (CURRENT_TIME_MS > 2000) // prevent phantom voltages upon startup
     {
         uint_t buttonValue = PIN_getInputValue( pinId );
-        if (rightButtonPressed && buttonValue) { // button released
+        if (rightButtonPressed && buttonValue) { // BUTTON RELEASED
+            if (!rightButtonLongPressHappened) {
+                //System_printf("Short press happened\n");
+                //System_flush();
+                rightButtonShortPress();
+            }
+            rightButtonLongPressHappened = 0;
             rightButtonPressed = 0;
-            
-            if ((CURRENT_TIME_MS - buttonRight_PressTime) > 1000) 
-            {
-                eastereggStarted = 1;
-                currentMessage = TETRIS;
+            buttonRight_PressTime = CURRENT_TIME_MS; 
 
-            }
-            else {
-                System_printf("SM activation toggled from state: %d\n", programState);
-                System_flush();
-
-                if (programState != IDLE_STATE) {
-                    programState = IDLE_STATE;
-                    currentMessage = DEACTIVATED_SM;
-                    PIN_setOutputValue(ledRed_Handle, Board_LED1, 1);
-
-                }
-                else {
-                    programState = defaultStartState;
-                    currentMessage = ACTIVATED_SM;
-                    PIN_setOutputValue(ledRed_Handle, Board_LED1, 0);
-                }
-            }
-
-        } else { // button pushed
+        } else if (!rightButtonPressed) { // BUTTON PUSHED
             if ( (CURRENT_TIME_MS - buttonRight_PressTime) > 100 ) {
-                rightButtonPressed = 1;
                 buttonRight_PressTime = CURRENT_TIME_MS;
+                rightButtonPressed = 1;
+                rightButtonLongPressHappened = 0;
+                Clock_start(longPressClock_Handle);
             }
-
         }
     }
 }
 
+
 // Left button. Interrupt will trigger on both press and release. 
 Void buttonLeft_Fxn(PIN_Handle handle, PIN_Id pinId)
 {
-    uint_t buttonValue = PIN_getInputValue( pinId );
-    if (buttonValue) { // button released
-        // Nothing and somthing
+    if (CURRENT_TIME_MS > 2000) // prevent phantom voltages upon startup
+    {
+        uint_t buttonValue = PIN_getInputValue( pinId );
+        if (buttonValue) { // button released
+            // Nothing
 
-    } else { // button pushed
-        
-        if (CURRENT_TIME_MS > 2000) {
+        } else { // button pushed
             if (programState != IDLE_STATE) {
                 sendDataToBeVisualizedFlag = 1;
             }
         }
-        
     }
 }
 
@@ -301,6 +334,7 @@ static void uartWriteTask_Fxn(UArg arg0, UArg arg1)
                 sprintf(uartMsg, "%s,%s,ping", tag_id, msg[3]);
             } else if (currentGesture == CHEATING) {
                 sprintf(uartMsg, "%s,%s,ping", tag_id, msg[4]);
+                cheatMessageSending = 0;
             }
             System_printf("Sending uart message: %s\n", uartMsg);
             System_flush();
@@ -331,9 +365,11 @@ static void uartWriteTask_Fxn(UArg arg0, UArg arg1)
 
             int i;
             for (i = 0; i < MPU_DATA_SPAN; i++){
-                sprintf(uartMsg,"%s,time:%d,ax:%d,ay:%d,az:%d,gx:%d,gy:%d,gz:%d", tag_id, (int)(MPU_data[i][0]),  
-                        (int)(MPU_data[i][1]*100), (int)(MPU_data[i][2]*100), (int)(MPU_data[i][3]*100),
-                        (int)(MPU_data[i][4]*100), (int)(MPU_data[i][5]*100), (int)(MPU_data[i][6]*100) ); // acc with time data
+                //sprintf(uartMsg,"%s,time:%d,ax:%d,ay:%d,az:%d,gx:%d,gy:%d,gz:%d", tag_id, (int)(MPU_data[i][0]),  
+                //        (int)(MPU_data[i][1]*100), (int)(MPU_data[i][2]*100), (int)(MPU_data[i][3]*100),
+                //        (int)(MPU_data[i][4]*100), (int)(MPU_data[i][5]*100), (int)(MPU_data[i][6]*100) ); 
+                sprintf(uartMsg,"%s,time:%d,ax:%d,ay:%d,az:%d", tag_id, (int)(MPU_data[i][0]),  
+                        (int)(MPU_data[i][1]*100), (int)(MPU_data[i][2]*100), (int)(MPU_data[i][3]*100) ); 
                 UART_write(uartHandle, uartMsg, sizeof(uartMsg));
                 memset(uartMsg, '\0', BUFFER_SIZE);
                 SLEEP(100);
@@ -439,7 +475,7 @@ Void uartReadTask_Fxn(UArg arg0, UArg arg1)
 }
 
 
-/* Light Sensor Task
+/* Light And Pressure Sensor Task
  * 
  * Enter state: DETECTING_LIGHT_LEVEL  or  PLAYING_BACKGROUND_MUSIC
  * Next state: READING_MPU_DATA  or  PLAYING_BACKGROUND_MUSIC
@@ -449,7 +485,7 @@ Void uartReadTask_Fxn(UArg arg0, UArg arg1)
  * 
  * IMPORTANT: Task requires that MPU sensor task be run, else I2C will not be setup (to avoid conflicts)
  */
-Void lightSensorTask_Fxn(UArg arg0, UArg arg1)
+Void sensorTask_Fxn(UArg arg0, UArg arg1)
 {
     double lux;
     double Sleep_Light_Threshold = 5;
@@ -580,7 +616,7 @@ Void lightSensorTask_Fxn(UArg arg0, UArg arg1)
         }
 
         /* PRESSURE SENSING */
-        if (eastereggStarted == 1 && programState != PLAYING_BACKGROUND_MUSIC) { 
+        if (eastereggStarted == 1 && programState != PLAYING_BACKGROUND_MUSIC && programState != IDLE_STATE) { 
         
             i2c = I2C_open(Board_I2C_TMP, &i2cParams);
             if (i2c == NULL) {
@@ -592,13 +628,16 @@ Void lightSensorTask_Fxn(UArg arg0, UArg arg1)
             I2C_close(i2c);
             SLEEP(100);
 
-            if (pressure > pressureThreshold) {
+            if (pressure > pressureThreshold && !cheatMessageSending) {
                 if (cheatsUsed >= 1) {
                     eastereggStarted = 0;
                     cheatsUsed = 0;
                 }
                 currentMessage = WON;
                 cheatingFlag = 1;
+                cheatMessageSending = 1;
+                System_printf("You found the cheat code!\n");
+                System_flush();
             }
 
             pressureCounter++;
@@ -732,9 +771,7 @@ Void gestureAnalysisTask_Fxn(UArg arg0, UArg arg1)
                 System_flush();
                 currentGesture = PLAYING;
                 
-            } else if(cheatingFlag == 1){
-                System_printf("You Cheated!\n");
-                System_flush();
+            } else if(cheatingFlag == 1) {
                 currentGesture = CHEATING;
                 cheatingFlag = 0;
                
@@ -867,8 +904,8 @@ Int main(void) {
     Task_Handle mpuSensorTask_Handle;
     Task_Params mpuSensorTask_Params;
 
-    Task_Handle lightSensorTask_Handle;
-    Task_Params lightSensorTask_Params;
+    Task_Handle sensorTask_Handle;
+    Task_Params sensorTask_Params;
 
     Task_Handle gestureAnalysisTask_Handle;
     Task_Params gestureAnalysisTask_Params;
@@ -902,12 +939,12 @@ Int main(void) {
         System_abort("mpuSensorTask create failed!");
     }
     
-    Task_Params_init(&lightSensorTask_Params);
-    lightSensorTask_Params.stackSize = STACKSIZE_LIGHT_SENSOR_TASK;
-    lightSensorTask_Params.stack = &lightSensorTask_Stack;
-    lightSensorTask_Params.priority=2;
-    lightSensorTask_Handle = Task_create(lightSensorTask_Fxn, &lightSensorTask_Params, NULL);
-    if (lightSensorTask_Handle == NULL) {
+    Task_Params_init(&sensorTask_Params);
+    sensorTask_Params.stackSize = STACKSIZE_SENSOR_TASK;
+    sensorTask_Params.stack = &sensorTask_Stack;
+    sensorTask_Params.priority=2;
+    sensorTask_Handle = Task_create(sensorTask_Fxn, &sensorTask_Params, NULL);
+    if (sensorTask_Handle == NULL) {
         System_abort("lightSensorTask create failed!");
     }
 
@@ -937,6 +974,7 @@ Int main(void) {
     if (uartReadTask_Handle == NULL) {
         System_abort("uartReadTask create failed!");
     }
+
     Task_Params_init(&signalTask_Params);
     signalTask_Params.stackSize = STACKSIZE_SIGNAL_TASK;
     signalTask_Params.stack = &signalTask_Stack;
@@ -945,7 +983,6 @@ Int main(void) {
     if (signalTask_Handle == NULL) {
         System_abort("signalTask create failed!");
     }
-
     
     Task_Params_init(&playBackgroundSongTask_Params);
     playBackgroundSongTask_Params.stackSize = STACKSIZE_PLAY_BG_SONG_TASK;
@@ -999,7 +1036,17 @@ Int main(void) {
 
     timeoutClock_Handle = Clock_create((Clock_FuncPtr)timeoutClock_Fxn, 1000*1000 / Clock_tickPeriod, &timeoutClock_Params, NULL);
     if (timeoutClock_Handle == NULL) {
-      System_abort("Clock create failed");
+      System_abort("Timeout Clock create failed");
+    }
+
+    /* Clock for long press (right button) */
+    Clock_Params_init(&longPressClock_Params);
+    longPressClock_Params.period = 0;
+    longPressClock_Params.startFlag = FALSE;
+
+    longPressClock_Handle = Clock_create((Clock_FuncPtr)longPressClock_Fxn, 1000*1000 / Clock_tickPeriod, &longPressClock_Params, NULL);
+    if (longPressClock_Handle == NULL) {
+      System_abort("Long Press Clock create failed");
     }
 
 
