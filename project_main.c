@@ -1,6 +1,7 @@
 /* C Standard library */
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 
 /* XDCtools files */
 #include <xdc/std.h>
@@ -129,7 +130,7 @@ uint8_t uartInterruptFlag = 0;
 uint8_t pongRecievedFlag = 1;
 uint8_t lastCommWasBeepFlag = 1; // tells the program if it sent a command or recieved a beep last
 uint8_t sendDataToBeVisualizedFlag = 0; 
-uint8_t eastereggCompleted = 0;
+
 uint8_t cheatsUsed = 0;
 uint8_t eastereggStarted = 0;
 uint8_t cheatingFlag = 0;
@@ -144,12 +145,11 @@ char printBuffer[127];
 int16_t commandSentTime = 0;
 double buttonRight_PressTime = 0.0;
 int MPU_setup_complete = 0;
-int lightSensor_lastCalled = 0;
-int lightSensor_timeout = 1000;
 int command_sendTime = 0;
 
-int mpu_pc = 0; // these are for observing the hz of the mpu function
-int mpu_lastPrinted = 0;
+char backendMessage1[60];
+char backendMessage2[60];
+uint8_t newBackendMessage = 0; // set to 1 for message 1, and 2 for message 2
 
 /* DATA */
 float MPU_data[MPU_DATA_SPAN][7];
@@ -272,11 +272,13 @@ static void uartWriteTask_Fxn(UArg arg0, UArg arg1)
 
     char session_start_msg[BUFFER_SIZE] = "session:start";
     char session_end_msg[BUFFER_SIZE] = "session:end";
+    char msg1_front[] = "MSG1:";
+    char msg2_front[] = "MSG2:";
 
     UART_Params_init(&uartParams);
     uartParams.baudRate      = 9600;
-    uartParams.readMode      = UART_MODE_CALLBACK; // Keskeytyspohjainen vastaanotto
-    uartParams.readCallback  = &uartFxn; // Käsittelijäfunktio
+    uartParams.readMode      = UART_MODE_CALLBACK; 
+    uartParams.readCallback  = &uartFxn; 
     uartParams.readDataMode  = UART_DATA_TEXT;
     uartParams.writeDataMode = UART_DATA_TEXT;
 
@@ -287,7 +289,6 @@ static void uartWriteTask_Fxn(UArg arg0, UArg arg1)
 
     UART_read(uartHandle, uartBuffer, BUFFER_SIZE);
 
-    // LOOP
     while (1) {
 
         if (programState == SENDING_MESSAGE_UART) {
@@ -301,48 +302,63 @@ static void uartWriteTask_Fxn(UArg arg0, UArg arg1)
             } else if (currentGesture == CHEATING) {
                 sprintf(uartMsg, "%s,%s,ping", tag_id, msg[4]);
             }
-            //System_printf("Sending uart message: %s\n", uartMsg);
-            //System_flush();
+            System_printf("Sending uart message: %s\n", uartMsg);
+            System_flush();
             UART_write(uartHandle, uartMsg, sizeof(uartMsg));
+            memset(uartMsg, '\0', BUFFER_SIZE);
             Clock_start(timeoutClock_Handle); // timeout clock for checking pong
             pongRecievedFlag = 0;
             command_sendTime = CURRENT_TIME_MS;
 
-            memset(uartMsg, 0, BUFFER_SIZE);
             if (programState != IDLE_STATE) {
                 if (currentGesture != CHEATING) {
                     programState = SIGNALLING_TO_USER;
                 } else {
                     programState = DETECTING_LIGHT_LEVEL;
                 }
-            } 
+            }
         }
 
         else if (sendDataToBeVisualizedFlag == 1) { // Send data to backend to be visualized
 
             sprintf(uartMsg, "%s,%s", tag_id, session_start_msg);
             UART_write(uartHandle, uartMsg, sizeof(uartMsg));
+            memset(uartMsg, '\0', BUFFER_SIZE);
+            SLEEP(100);
             
             System_printf("Session started ...\n");
             System_flush();
 
             int i;
             for (i = 0; i < MPU_DATA_SPAN; i++){
-                //sprintf(uartMsg,"%s,ax:%d,ay:%d,az:%d", tag_id, (int)(MPU_data[i][1]*100), (int)(MPU_data[i][2]*100), (int)(MPU_data[i][3]*100) ); // acc data
-                sprintf(uartMsg,"%s,time:%d,ax:%d,ay:%d,az:%d", tag_id, (int)(MPU_data[i][0]/1), (int)(MPU_data[i][1]*100), (int)(MPU_data[i][2]*100), (int)(MPU_data[i][3]*100) ); // acc with time data
-                //sprintf(uartMsg,"%s,gx:%d,gy:%d,gz:%d", tag_id, (int)(MPU_data[i][4]*10), (int)(MPU_data[i][5]*10), (int)(MPU_data[i][6]*10) ); // gyro data (not visualizing well)
+                sprintf(uartMsg,"%s,time:%d,ax:%d,ay:%d,az:%d,gx:%d,gy:%d,gz:%d", tag_id, (int)(MPU_data[i][0]),  
+                        (int)(MPU_data[i][1]*100), (int)(MPU_data[i][2]*100), (int)(MPU_data[i][3]*100),
+                        (int)(MPU_data[i][4]*100), (int)(MPU_data[i][5]*100), (int)(MPU_data[i][6]*100) ); // acc with time data
                 UART_write(uartHandle, uartMsg, sizeof(uartMsg));
+                memset(uartMsg, '\0', BUFFER_SIZE);
+                SLEEP(100);
             }
             
             sprintf(uartMsg, "%s,%s", tag_id, session_end_msg);
             UART_write(uartHandle, uartMsg, sizeof(uartMsg));
+            memset(uartMsg, '\0', BUFFER_SIZE);
 
             System_printf("... session ended\n");
             System_flush();
 
-            memset(uartMsg, 0, BUFFER_SIZE);
             currentMessage = DATA_UPLOADED;
             sendDataToBeVisualizedFlag = 0;
+        }
+
+        else if (newBackendMessage == 1) {
+            sprintf(uartMsg, "%s,%s%s,%s%s", tag_id, msg1_front, backendMessage1, msg2_front, backendMessage2);
+            UART_write(uartHandle, uartMsg, sizeof(uartMsg));
+            memset(uartMsg, '\0', BUFFER_SIZE);
+            
+            //System_printf("Backend message updated\n");
+            //System_flush();
+
+            newBackendMessage = 0;
         }
         SLEEP(100);
     }
@@ -430,11 +446,18 @@ Void uartReadTask_Fxn(UArg arg0, UArg arg1)
  * 
  * Task will only read light sensor after period of time, defined by lightSensor_timeout. Will change
  * to next state regardless. 
+ * 
+ * IMPORTANT: Task requires that MPU sensor task be run, else I2C will not be setup (to avoid conflicts)
  */
 Void lightSensorTask_Fxn(UArg arg0, UArg arg1)
 {
     double lux;
     double Sleep_Light_Threshold = 5;
+    uint8_t lightLevelBars = 0;
+    uint8_t lightLevelBarsPrev = 255;
+    uint8_t lastSleepState = 0;
+    int lightSensor_lastCalled = 0;
+    int lightSensor_timeout = 1000;
 
     double pressureDiffThreshold = 200;
     double averagePressure;
@@ -476,7 +499,7 @@ Void lightSensorTask_Fxn(UArg arg0, UArg arg1)
     SLEEP(100);
     bmp280_setup(&i2c);
 
-    // calculate average pressure
+    /* Calculate average pressure */
     int i;
     for (i = 0; i < 1; i++) {
         bmp280_get_data(&i2c, &pressure, &temp_comp); // first reading(s) is/are bad for some reason
@@ -499,6 +522,7 @@ Void lightSensorTask_Fxn(UArg arg0, UArg arg1)
 
     while (1) {
 
+        /* LIGHT LEVEL SENSING */
          if (programState == DETECTING_LIGHT_LEVEL || programState == PLAYING_BACKGROUND_MUSIC) {
 
             if ((CURRENT_TIME_MS - lightSensor_lastCalled) > lightSensor_timeout) // only actually sense light level every 1000 ms
@@ -508,32 +532,55 @@ Void lightSensorTask_Fxn(UArg arg0, UArg arg1)
                     System_abort("OPT3001: Error Initializing I2C\n");
                 }
                 int i;
-                for (i = 0; i < 10; i++) {
+                for (i = 0; i < 10; i++){
                     lux = opt3001_get_data(&i2c);
                     if (lux != -1) break;
                 }
                 I2C_close(i2c);
-                SLEEP(100);
 
-                //sprintf(printBuffer, "Light level: %.2f\n", lux);
+                // updating light level indicator
+                lightLevelBars = (uint8_t) (2*(8.5 * pow((lux), (0.15)) - 9) - 1);
+                if (lightLevelBars > 100) lightLevelBars = 0;
+                
+                if (lightLevelBars != lightLevelBarsPrev) {
+                    createLightLevelBar(&backendMessage2, lightLevelBars);
+                    lightLevelBarsPrev = lightLevelBars;
+                    newBackendMessage = 1;
+                }
+
+                //sprintf(printBuffer, "Bars: %d Light level: %.2f\n", lightLevelBars, lux);
                 //System_printf(printBuffer);
                 //System_flush();
+                //if (newBackendMessage == 1) {
+                //    sprintf(printBuffer, "msg to backend: %s\n", backendMessage2);
+                //    System_printf(printBuffer);
+                //    System_flush();
+                //}
 
                 lightSensor_lastCalled = CURRENT_TIME_MS;
             }
 
-            if (programState != IDLE_STATE)
-            {
-                if (lux < Sleep_Light_Threshold) {
+            if (programState != IDLE_STATE) {
+                if ( lux < Sleep_Light_Threshold ) {
                     programState = PLAYING_BACKGROUND_MUSIC;
-
-                }
-                else {
+                    if (lastSleepState == 1) {
+                        newBackendMessage = 1;
+                        sprintf(backendMessage1, "zzzzzzzzzzzzz");
+                        lastSleepState = 0;
+                    }
+                } else {
                     programState = READING_MPU_DATA;
+                    if (lastSleepState == 0) {
+                        newBackendMessage = 1;
+                        sprintf(backendMessage1, "I'm awake!");
+                        lastSleepState = 1;
+                    }
                 }
             }
         }
-        if (eastereggStarted == 1 && programState != PLAYING_BACKGROUND_MUSIC) { //currentEasteregg != NO_EASTEREGG && eastereggStarted == 1
+
+        /* PRESSURE SENSING */
+        if (eastereggStarted == 1 && programState != PLAYING_BACKGROUND_MUSIC) { 
         
             i2c = I2C_open(Board_I2C_TMP, &i2cParams);
             if (i2c == NULL) {
@@ -549,7 +596,6 @@ Void lightSensorTask_Fxn(UArg arg0, UArg arg1)
                 if (cheatsUsed >= 1) {
                     eastereggStarted = 0;
                     cheatsUsed = 0;
-                    //eastereggCompleted = 1;
                 }
                 currentMessage = WON;
                 cheatingFlag = 1;
@@ -579,7 +625,9 @@ Void lightSensorTask_Fxn(UArg arg0, UArg arg1)
 Void mpuSensorTask_Fxn(UArg arg0, UArg arg1)
 {
     float time, ax, ay, az, gx, gy, gz;
-    //float new_data[7], new_mean_data[7];
+
+    int mpu_pc = 0; // debug purposes
+    int mpu_lastPrinted = 0;
 
     I2C_Handle      i2cMPU;
     I2C_Params      i2cMPUParams;
@@ -630,7 +678,7 @@ Void mpuSensorTask_Fxn(UArg arg0, UArg arg1)
 
             if (programState != IDLE_STATE) programState = ANALYSING_DATA;
 
-            // For seeing MPU call freq
+            // Debug
             mpu_pc++;
             if (mpu_pc >= 50){
                 float freq = (float)mpu_pc * 1000 / (CURRENT_TIME_MS - mpu_lastPrinted);
