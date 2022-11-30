@@ -55,7 +55,10 @@ void printArray(float *array, uint8_t span)
     System_flush();
 }
 
-
+/* Will return 1 if str contains the string sub starting at index i. 
+ * 
+ * Function by Matti
+*/ 
 int stringContainsAt(char *str, char *sub, int i)
 {
     char *ptr1 = str;

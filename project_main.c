@@ -280,7 +280,7 @@ Void buttonLeft_Fxn(PIN_Handle handle, PIN_Id pinId)
  * 
  * 2nd enter state: sendDataToBeVisualizedFlag set. 
  * This will start a session and send all data in MPU_data to backend to be visualized. 
- * 
+ * Matti & Risto & Khalil
  */
 static void uartWriteTask_Fxn(UArg arg0, UArg arg1)
 {
@@ -403,6 +403,7 @@ static void uartWriteTask_Fxn(UArg arg0, UArg arg1)
  * independent of the SM. 
  * 
  * Task will reset pong flag if pong message was recieved. 
+ *  Matti & Risto
  */
 Void uartReadTask_Fxn(UArg arg0, UArg arg1)
 {
@@ -473,6 +474,7 @@ Void uartReadTask_Fxn(UArg arg0, UArg arg1)
  * to next state regardless. 
  * 
  * IMPORTANT: Task requires that MPU sensor task be run, else I2C will not be setup (to avoid conflicts)
+ * Matti & Khalil & Risto
  */
 Void sensorTask_Fxn(UArg arg0, UArg arg1)
 {
@@ -633,6 +635,7 @@ Void sensorTask_Fxn(UArg arg0, UArg arg1)
  * 
  * Task will read mpu data and add it to global MPU_data array. Task frequency is also monitored and
  * printed to console after certain number of calls. 
+ * Matti & Risto
  */
 Void mpuSensorTask_Fxn(UArg arg0, UArg arg1)
 {
@@ -711,6 +714,7 @@ Void mpuSensorTask_Fxn(UArg arg0, UArg arg1)
  * 
  * State will 'analyse' MPU_data for gestures. Currently only looks at 0 row. If gesture is detected, will
  * change currentGesture enum to relevant gesture.
+ * Risto & Khalil & Matti
  */
 Void gestureAnalysisTask_Fxn(UArg arg0, UArg arg1)
 {
@@ -770,7 +774,7 @@ Void gestureAnalysisTask_Fxn(UArg arg0, UArg arg1)
  * - Data upload session has finished. 
  * 
  * Task will set currentMessage to NO_MESSAGE after. 
- * 
+ * Matti & Khalil
  */
 Void signalTask_Fxn(UArg arg0, UArg arg1)
 {
@@ -833,7 +837,7 @@ Void signalTask_Fxn(UArg arg0, UArg arg1)
  * 
  * Task will simply call playSongInterruptible() function and give it pointer to progam state and
  * continue state. Function will stop playing song if programState changes from continue state. 
- * 
+ *  Matti
  */
 Void playBackgroundSongTask_Fxn(UArg arg0, UArg arg1)
 {
