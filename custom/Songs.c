@@ -241,7 +241,7 @@ const uint16_t sounds_of_freed_memory[] = {
 
 /* Lullaby */
 const uint16_t lullaby[] = {
-                        (100 / 4) << 8 | 52,
+                        (90 / 4) << 8 | 52,
                         NOTE_A  | OCT_6 | EIGHTHS_NOTE | 1,
                         NOTE_A          | EIGHTHS_NOTE,
                         NOTE_C  | OCT_7 | HALF_NOTE,

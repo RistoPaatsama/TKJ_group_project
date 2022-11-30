@@ -23,6 +23,7 @@
 #include "Board.h"
 #include "wireless/comm_lib.h"
 #include "sensors/opt3001.h"
+#include "sensors/bmp280.h"
 #include "sensors/mpu9250.h"
 #include "custom/DataHandling.h"
 #include "custom/Utilities.h"
@@ -185,8 +186,6 @@ Void timeoutClock_Fxn(UArg arg0)
 void rightButtonLongPress() {
     if (!eastereggStarted && programState != IDLE_STATE) {
         eastereggStarted = 1;
-        cheatMessageSending = 0;
-        //cheatsUsed = 0;
         currentMessage = TETRIS;
     } else {
         System_printf("Unable to play Tetris\n");
@@ -217,8 +216,6 @@ Void longPressClock_Fxn(UArg arg0)
 {
     if (rightButtonPressed) {
         rightButtonLongPressHappened = 1;
-        //System_printf("Long press detected\n");
-        //System_flush();
         rightButtonLongPress();
     }
 
@@ -233,8 +230,6 @@ Void buttonRight_Fxn(PIN_Handle handle, PIN_Id pinId)
         uint_t buttonValue = PIN_getInputValue( pinId );
         if (rightButtonPressed && buttonValue) { // BUTTON RELEASED
             if (!rightButtonLongPressHappened) {
-                //System_printf("Short press happened\n");
-                //System_flush();
                 rightButtonShortPress();
             }
             rightButtonLongPressHappened = 0;
@@ -368,14 +363,12 @@ static void uartWriteTask_Fxn(UArg arg0, UArg arg1)
 
             int i;
             for (i = 0; i < MPU_DATA_SPAN; i++){
-                //sprintf(uartMsg,"%s,time:%d,ax:%d,ay:%d,az:%d,gx:%d,gy:%d,gz:%d", tag_id, (int)(MPU_data[i][0]),  
-                //        (int)(MPU_data[i][1]*100), (int)(MPU_data[i][2]*100), (int)(MPU_data[i][3]*100),
-                //        (int)(MPU_data[i][4]*100), (int)(MPU_data[i][5]*100), (int)(MPU_data[i][6]*100) ); 
-                sprintf(uartMsg,"%s,time:%d,ax:%d,ay:%d,az:%d", tag_id, (int)(MPU_data[i][0]),  
-                        (int)(MPU_data[i][1]*100), (int)(MPU_data[i][2]*100), (int)(MPU_data[i][3]*100) ); 
+                sprintf(uartMsg,"%s,time:%d,ax:%d,ay:%d,az:%d,gx:%d,gy:%d,gz:%d", tag_id, (int)(MPU_data[i][0]),  
+                        (int)(MPU_data[0][1]*100), (int)(MPU_data[0][2]*100), (int)(MPU_data[0][3]*100),
+                        (int)(MPU_data[0][4]*100), (int)(MPU_data[0][5]*100), (int)(MPU_data[0][6]*100) ); 
                 UART_write(uartHandle, uartMsg, sizeof(uartMsg));
                 memset(uartMsg, '\0', BUFFER_SIZE);
-                SLEEP(100);
+                SLEEP(400);
             }
             
             sprintf(uartMsg, "%s,%s", tag_id, session_end_msg);
@@ -393,10 +386,6 @@ static void uartWriteTask_Fxn(UArg arg0, UArg arg1)
             sprintf(uartMsg, "%s,%s%s,%s%s", tag_id, msg1_front, backendMessage1, msg2_front, backendMessage2);
             UART_write(uartHandle, uartMsg, sizeof(uartMsg));
             memset(uartMsg, '\0', BUFFER_SIZE);
-            
-            //System_printf("Backend message updated\n");
-            //System_flush();
-
             newBackendMessage = 0;
         }
         SLEEP(100);
@@ -439,9 +428,6 @@ Void uartReadTask_Fxn(UArg arg0, UArg arg1)
 
             strcpy(uartMsgRec, uartBuffer);
             memset(uartBuffer, 0, BUFFER_SIZE);
-
-            //System_printf("Revieced UART message: %s\n", uartMsgRec);
-            System_flush();
 
             if (stringContainsAt(uartMsgRec, beep_msg, 0)) { // BEEP RECIEVED
 
@@ -503,7 +489,6 @@ Void sensorTask_Fxn(UArg arg0, UArg arg1)
     double pressureThreshold;
     double pressure;
     double temp_comp;
-    int pressureCounter = 0; // for debugging purposes
 
     I2C_Handle      i2c;
     I2C_Params      i2cParams;
@@ -548,9 +533,6 @@ Void sensorTask_Fxn(UArg arg0, UArg arg1)
         bmp280_get_data(&i2c, &pressure, &temp_comp);
         averagePressure += pressure;
         SLEEP(100);
-        //sprintf(printBuffer, "(Finding average pressure) Pressure level: %d\n", (int)pressure);
-        //System_printf(printBuffer);
-        //System_flush();
     }
     averagePressure = averagePressure / i;
     pressureThreshold = averagePressure + pressureDiffThreshold;
@@ -587,15 +569,6 @@ Void sensorTask_Fxn(UArg arg0, UArg arg1)
                     newBackendMessage = 1;
                 }
 
-                /*sprintf(printBuffer, "Bars: %d Light level: %.2f\n", lightLevelBars, lux);
-                System_printf(printBuffer);
-                System_flush();
-                if (newBackendMessage == 1) {
-                    sprintf(printBuffer, "msg to backend: %s\n", backendMessage2);
-                    System_printf(printBuffer);
-                    System_flush();
-                }*/
-
                 lightSensor_lastCalled = CURRENT_TIME_MS;
             }
 
@@ -631,7 +604,7 @@ Void sensorTask_Fxn(UArg arg0, UArg arg1)
             I2C_close(i2c);
             SLEEP(100);
 
-            if (pressure > pressureThreshold && !cheatMessageSending) {
+            if (pressure > pressureThreshold ) {
 
                 cheatsUsed = cheatsUsed + 1;
                 sprintf(printBuffer, "cheats Used: %d\n", cheatsUsed);
@@ -647,14 +620,6 @@ Void sensorTask_Fxn(UArg arg0, UArg arg1)
                 System_printf("You found the cheat code!\n");
                 System_flush();
             }
-
-           /* pressureCounter++;
-            if (pressureCounter >= 50) {
-                pressureCounter = 0;
-                sprintf(printBuffer, "Pressure level: %d, average pressure: %d, diff: %d\n", (int)pressure, (int)averagePressure, (int)(pressureThreshold-pressure));
-                System_printf(printBuffer);
-                System_flush();
-            }*/
         }
         SLEEP(50);
     }
@@ -673,8 +638,8 @@ Void mpuSensorTask_Fxn(UArg arg0, UArg arg1)
 {
     float time, ax, ay, az, gx, gy, gz;
 
-    int mpu_pc = 0; // debug purposes
-    int mpu_lastPrinted = 0;
+    //int mpu_pc = 0; // debug purposes
+    //int mpu_lastPrinted = 0;
 
     I2C_Handle      i2cMPU;
     I2C_Params      i2cMPUParams;
@@ -717,16 +682,12 @@ Void mpuSensorTask_Fxn(UArg arg0, UArg arg1)
             time = CURRENT_TIME_MS;
             I2C_close(i2cMPU);
 
-            //addData(MPU_data_buffer, SLIDING_MEAN_WINDOW, new_data);
-            //getAverage(MPU_data_buffer, new_mean_data);
-            //new_mean_data[0] = time;
-
             addMpuData(MPU_data, MPU_DATA_SPAN, time, 10*ax, 10*ay, 10*az, gx, gy, gz);
 
             if (programState != IDLE_STATE) programState = ANALYSING_DATA;
 
             // Debug
-            mpu_pc++;
+           /* mpu_pc++;
             if (mpu_pc >= 50){
                 float freq = (float)mpu_pc * 1000 / (CURRENT_TIME_MS - mpu_lastPrinted);
                 mpu_lastPrinted = CURRENT_TIME_MS;
@@ -736,7 +697,7 @@ Void mpuSensorTask_Fxn(UArg arg0, UArg arg1)
                 //System_flush();
                 //printMpuData(MPU_data, MPU_DATA_SPAN);
                 mpu_pc = 0;
-            }
+            }*/
         }
         SLEEP(100);
     }
@@ -753,22 +714,15 @@ Void mpuSensorTask_Fxn(UArg arg0, UArg arg1)
  */
 Void gestureAnalysisTask_Fxn(UArg arg0, UArg arg1)
 {
-    //float variance[7], mean[7], max[7], min[7];
 
     while (1) {
         if ( programState == ANALYSING_DATA ) {
 
-            ////System_printf("In state: gestureAnalysis\n");
-            //System_flush();
-
-            //analyseData(MPU_data, variance, mean, max, min);
-            //printMpuData(MPU_data, 1);
-
             if (cheatingFlag == 1) {
                 currentGesture = CHEATING;
                 cheatingFlag = 0;
-            }
-            else if (isPetting(MPU_data, MPU_DATA_SPAN)) { //isPetting(MPU_data, MPU_DATA_SPAN))
+
+            } else if (isPetting(MPU_data, MPU_DATA_SPAN)) { 
                 System_printf("Petting detected!\n");
                 System_flush();
                 currentGesture = PETTING;
@@ -782,9 +736,8 @@ Void gestureAnalysisTask_Fxn(UArg arg0, UArg arg1)
                 System_printf("Playing detected!\n");
                 System_flush();
                 currentGesture = PLAYING;
-                
-            }
-            else {
+
+            } else {
                 currentGesture = NO_GESTURE;
             }
 
@@ -826,8 +779,6 @@ Void signalTask_Fxn(UArg arg0, UArg arg1)
         if (programState == SIGNALLING_TO_USER || (currentMessage != NO_MESSAGE) ) { 
 
             if (programState == SIGNALLING_TO_USER) {
-                //System_printf("Signaling to user with buzzer!\n");
-                //System_flush();
                 playSong(buzzerHandle, gesture_detected_signal);
             }
 
@@ -862,10 +813,8 @@ Void signalTask_Fxn(UArg arg0, UArg arg1)
                 }
                 else if (currentMessage == WON) {
                     programState = IDLE_STATE;
-                    cheatMessageSending = 1;
                     cheatingFlag = 1;
                     playSong(buzzerHandle, winning_signal); 
-                    cheatMessageSending = 0;
                     programState = defaultStartState;
                 }
             }
@@ -888,17 +837,14 @@ Void signalTask_Fxn(UArg arg0, UArg arg1)
  */
 Void playBackgroundSongTask_Fxn(UArg arg0, UArg arg1)
 {
-    // initialization testing
 
     while (1) {
         if (programState == PLAYING_BACKGROUND_MUSIC) {
 
             System_printf("Playing lullaby ... zzzz\n");
             System_flush();
-
-            // execute state function
+           
             playSongInterruptible(buzzerHandle, lullaby, &programState, PLAYING_BACKGROUND_MUSIC);
-            //playSong(buzzerHandle, lullaby);
             
             if (programState != IDLE_STATE) programState = READING_MPU_DATA;
         }
