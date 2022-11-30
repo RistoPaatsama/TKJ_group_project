@@ -185,6 +185,8 @@ Void timeoutClock_Fxn(UArg arg0)
 void rightButtonLongPress() {
     if (!eastereggStarted && programState != IDLE_STATE) {
         eastereggStarted = 1;
+        cheatMessageSending = 0;
+        //cheatsUsed = 0;
         currentMessage = TETRIS;
     } else {
         System_printf("Unable to play Tetris\n");
@@ -219,6 +221,7 @@ Void longPressClock_Fxn(UArg arg0)
         //System_flush();
         rightButtonLongPress();
     }
+
     Clock_stop(longPressClock_Handle);
 }
 
@@ -297,7 +300,7 @@ static void uartWriteTask_Fxn(UArg arg0, UArg arg1)
         "PET:1",
         "EAT:1",
         "EXERCISE:1",
-        "ACTIVATE:5;5;5",
+        "ACTIVATE:3;3;3",
         "id:2231,MSG1:Health: ##--- 40%",
         "id:2231,MSG2:State 2 / Value 2.21",
         "ENERGY:3"
@@ -573,9 +576,9 @@ Void sensorTask_Fxn(UArg arg0, UArg arg1)
                     if (lux != -1) break;
                 }
                 I2C_close(i2c);
-
+                SLEEP(100);
                 // updating light level indicator
-                lightLevelBars = (uint8_t) (2*(8.5 * pow((lux), (0.15)) - 9) - 1);
+                lightLevelBars = (uint8_t) (2*(4.0 * pow((lux), (0.15)) - 4.2));
                 if (lightLevelBars > 100) lightLevelBars = 0;
                 
                 if (lightLevelBars != lightLevelBarsPrev) {
@@ -584,14 +587,14 @@ Void sensorTask_Fxn(UArg arg0, UArg arg1)
                     newBackendMessage = 1;
                 }
 
-                //sprintf(printBuffer, "Bars: %d Light level: %.2f\n", lightLevelBars, lux);
-                //System_printf(printBuffer);
-                //System_flush();
-                //if (newBackendMessage == 1) {
-                //    sprintf(printBuffer, "msg to backend: %s\n", backendMessage2);
-                //    System_printf(printBuffer);
-                //    System_flush();
-                //}
+                /*sprintf(printBuffer, "Bars: %d Light level: %.2f\n", lightLevelBars, lux);
+                System_printf(printBuffer);
+                System_flush();
+                if (newBackendMessage == 1) {
+                    sprintf(printBuffer, "msg to backend: %s\n", backendMessage2);
+                    System_printf(printBuffer);
+                    System_flush();
+                }*/
 
                 lightSensor_lastCalled = CURRENT_TIME_MS;
             }
@@ -629,24 +632,29 @@ Void sensorTask_Fxn(UArg arg0, UArg arg1)
             SLEEP(100);
 
             if (pressure > pressureThreshold && !cheatMessageSending) {
-                if (cheatsUsed >= 1) {
+
+                cheatsUsed = cheatsUsed + 1;
+                sprintf(printBuffer, "cheats Used: %d\n", cheatsUsed);
+                System_printf(printBuffer);
+                System_flush();
+
+                if (cheatsUsed >= 2) {
                     eastereggStarted = 0;
                     cheatsUsed = 0;
                 }
+                
                 currentMessage = WON;
-                cheatingFlag = 1;
-                cheatMessageSending = 1;
                 System_printf("You found the cheat code!\n");
                 System_flush();
             }
 
-            pressureCounter++;
-            if (pressureCounter >= 15) {
+           /* pressureCounter++;
+            if (pressureCounter >= 50) {
                 pressureCounter = 0;
-                //sprintf(printBuffer, "Pressure level: %d, average pressure: %d, diff: %d\n", (int)pressure, (int)averagePressure, (int)(pressureThreshold-pressure));
-                //System_printf(printBuffer);
-                //System_flush();
-            }
+                sprintf(printBuffer, "Pressure level: %d, average pressure: %d, diff: %d\n", (int)pressure, (int)averagePressure, (int)(pressureThreshold-pressure));
+                System_printf(printBuffer);
+                System_flush();
+            }*/
         }
         SLEEP(50);
     }
@@ -756,7 +764,11 @@ Void gestureAnalysisTask_Fxn(UArg arg0, UArg arg1)
             //analyseData(MPU_data, variance, mean, max, min);
             //printMpuData(MPU_data, 1);
 
-            if (isPetting(MPU_data, MPU_DATA_SPAN)) { //isPetting(MPU_data, MPU_DATA_SPAN))
+            if (cheatingFlag == 1) {
+                currentGesture = CHEATING;
+                cheatingFlag = 0;
+            }
+            else if (isPetting(MPU_data, MPU_DATA_SPAN)) { //isPetting(MPU_data, MPU_DATA_SPAN))
                 System_printf("Petting detected!\n");
                 System_flush();
                 currentGesture = PETTING;
@@ -771,10 +783,6 @@ Void gestureAnalysisTask_Fxn(UArg arg0, UArg arg1)
                 System_flush();
                 currentGesture = PLAYING;
                 
-            } else if(cheatingFlag == 1) {
-                currentGesture = CHEATING;
-                cheatingFlag = 0;
-               
             }
             else {
                 currentGesture = NO_GESTURE;
@@ -854,8 +862,10 @@ Void signalTask_Fxn(UArg arg0, UArg arg1)
                 }
                 else if (currentMessage == WON) {
                     programState = IDLE_STATE;
-                    playSong(buzzerHandle, winning_signal);
-                    cheatsUsed = cheatsUsed + 1;
+                    cheatMessageSending = 1;
+                    cheatingFlag = 1;
+                    playSong(buzzerHandle, winning_signal); 
+                    cheatMessageSending = 0;
                     programState = defaultStartState;
                 }
             }
